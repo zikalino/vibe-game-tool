@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tile Water Sandbox</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="layout">
+    <section class="panel">
+      <h1>Tile Water Sandbox</h1>
+      <p>
+        Move with Arrow Keys or WASD. Break soil in front of you with Space.
+      </p>
+      <p>
+        Press F to pour water where your facing arrow points.
+      </p>
+      <p>
+        With Water tool selected, hold left mouse to pour from your cursor.
+      </p>
+      <p>
+        Stone is solid, soil is breakable, and water flows down first then spreads sideways.
+      </p>
+      <p>
+        Mouse build mode: left click places selected tile, right click erases.
+      </p>
+      <div class="tools" id="tools" aria-label="Build tools">
+        <button class="tool is-active" data-tool="stone">Stone [1]</button>
+        <button class="tool" data-tool="soil">Soil [2]</button>
+        <button class="tool" data-tool="water">Water [3]</button>
+        <button class="tool" data-tool="rock">Rock [4]</button>
+        <button class="tool" data-tool="erase">Erase [0]</button>
+      </div>
+      <div class="status" aria-live="polite">
+        <p>Objective: Break 8 soil blocks and reach the goal tile.</p>
+        <p>Soil broken: <strong id="soilCount">0 / 8</strong></p>
+        <p>State: <strong id="gameState">Playing</strong></p>
+      </div>
+      <div class="legend">
+        <span class="stone">Stone</span>
+        <span class="soil">Soil</span>
+        <span class="water">Water</span>
+        <span class="rock">Rock</span>
+        <span class="goal">Goal</span>
+        <span class="empty">Empty</span>
+      </div>
+    </section>
+    <section class="game-wrap">
+      <canvas id="game" width="768" height="512" aria-label="Tile game canvas"></canvas>
+    </section>
+  </main>
+
+  <section class="overlay hidden" id="winOverlay" aria-live="polite" aria-modal="true" role="dialog">
+    <div class="overlay-card">
+      <h2>You Win</h2>
+      <p>You reached the goal after completing the objective.</p>
+      <button id="playAgainBtn" type="button">Play Again</button>
+    </div>
+  </section>
+
+  <script type="module" src="game.js"></script>
+</body>
+</html>
