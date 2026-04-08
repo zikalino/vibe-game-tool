@@ -1,0 +1,52 @@
+name: Setup repository labels
+
+on:
+  workflow_dispatch:   # run manually once (or whenever you want to re-sync labels)
+
+permissions:
+  issues: write
+
+jobs:
+  create-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create / update labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Helper: create label if it doesn't exist, update if it does.
+          upsert_label() {
+            local NAME="$1"
+            local COLOR="$2"
+            local DESCRIPTION="$3"
+
+            if gh label list --repo "${REPO}" --json name | grep -q "\"${NAME}\""; then
+              echo "Updating label: ${NAME}"
+              gh label edit "${NAME}" \
+                --repo "${REPO}" \
+                --color "${COLOR}" \
+                --description "${DESCRIPTION}" || true
+            else
+              echo "Creating label: ${NAME}"
+              gh label create "${NAME}" \
+                --repo "${REPO}" \
+                --color "${COLOR}" \
+                --description "${DESCRIPTION}" || true
+            fi
+          }
+
+          # Issue lifecycle labels
+          upsert_label "status: needs-triage"        "e4e669" "New issue awaiting maintainer review"
+          upsert_label "status: accepted"             "0075ca" "Approved for implementation by Copilot"
+          upsert_label "status: in-progress"          "fbca04" "Copilot is actively working on this"
+          upsert_label "status: done"                 "0e8a16" "Implemented and merged"
+          upsert_label "status: wont-fix"             "ffffff" "Will not be implemented"
+
+          # Copilot-specific helpers
+          upsert_label "copilot: needs-manual-assign" "d93f0b" "Copilot could not be assigned automatically — manual action required"
+
+          # Auto-merge helper
+          upsert_label "automerge"                    "6f42c1" "Enable auto-merge when all checks pass"
+
+          echo "All labels have been created/updated."

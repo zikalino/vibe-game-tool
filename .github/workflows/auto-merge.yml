@@ -1,0 +1,36 @@
+name: Enable auto-merge on Copilot PRs
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+# Minimal permissions: write pull-requests so we can enable auto-merge.
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  enable-auto-merge:
+    # Only run for PRs opened by the Copilot coding agent (login: `copilot[bot]`)
+    # OR for PRs that carry the `automerge` label.
+    if: |
+      github.event.pull_request.user.login == 'copilot[bot]' ||
+      contains(github.event.pull_request.labels.*.name, 'automerge')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Enable auto-merge (squash)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Enabling auto-merge (squash) on PR #${PR_NUMBER}..."
+          gh pr merge "${PR_NUMBER}" \
+            --repo "${REPO}" \
+            --auto \
+            --squash || {
+            echo "auto-merge could not be enabled — branch protection may not be"
+            echo "configured yet, or the PR is already merged/closed. Skipping."
+            exit 0
+          }

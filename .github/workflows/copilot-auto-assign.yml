@@ -1,0 +1,103 @@
+name: Assign to Copilot on acceptance
+
+on:
+  issues:
+    types: [labeled]
+
+# Minimal permissions: read issues + write issues (for comments/labels).
+# We do NOT need write access to pull-requests or code for this workflow.
+permissions:
+  issues: write
+
+jobs:
+  assign-to-copilot:
+    # Only run when the `status: accepted` label is applied to an issue.
+    # Ignore events that come from bots (e.g., dependabot, other automation).
+    if: |
+      github.event.label.name == 'status: accepted' &&
+      github.event.issue.pull_request == null &&
+      (github.event.sender.type == 'User' || github.event.sender.type == 'Mannequin')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Try to assign issue to Copilot
+        id: assign
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        # Attempt to assign the issue to the `copilot` user via the GitHub API.
+        # The Copilot coding agent is surfaced as a special assignee; its login
+        # is `copilot` in the GitHub API when the feature is enabled for the repo.
+        # If the assignment fails (feature not enabled / plan limitation), we fall
+        # through to the fallback step.
+        run: |
+          echo "Attempting to assign issue #${ISSUE_NUMBER} to Copilot..."
+          HTTP_STATUS=$(curl -s -o /tmp/assign_response.json -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${REPO}/issues/${ISSUE_NUMBER}/assignees" \
+            -d '{"assignees":["copilot"]}')
+
+          echo "HTTP status: ${HTTP_STATUS}"
+          cat /tmp/assign_response.json
+
+          # Consider 200/201 as success; anything else as a soft failure.
+          if [ "${HTTP_STATUS}" = "200" ] || [ "${HTTP_STATUS}" = "201" ]; then
+            echo "assignment_succeeded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "assignment_succeeded=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Add status:in-progress label on success
+        if: steps.assign.outputs.assignment_succeeded == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Assignment succeeded. Adding 'status: in-progress' label..."
+          gh issue edit "${ISSUE_NUMBER}" \
+            --repo "${REPO}" \
+            --add-label "status: in-progress" \
+            --remove-label "status: accepted" || true
+
+      - name: Fallback — comment with manual instructions
+        if: steps.assign.outputs.assignment_succeeded != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Copilot assignment via API failed. Posting fallback comment..."
+          gh issue comment "${ISSUE_NUMBER}" \
+            --repo "${REPO}" \
+            --body "$(cat <<'EOF'
+          ## 🤖 Action required — assign to Copilot manually
+
+          The automation attempted to assign this issue to **GitHub Copilot** but
+          was unable to do so via the API (the feature may not be enabled on your
+          plan, or the \`copilot\` assignee isn't available in this repository yet).
+
+          **Manual steps for the maintainer:**
+
+          1. Open this issue in the GitHub UI.
+          2. In the **Assignees** section on the right-hand panel, click the gear icon.
+          3. Select **Copilot** from the list (it appears when the Copilot coding agent
+             is enabled for this repository).
+          4. Copilot will create a draft PR and request your review when done.
+
+          > If **Copilot** does not appear in the assignees list, make sure the
+          > [GitHub Copilot coding agent](https://docs.github.com/en/copilot/tutorials/coding-agent/improve-a-project)
+          > is enabled for this repository in your organisation / personal settings.
+
+          Once you have assigned the issue manually, you can ignore this comment.
+          EOF
+          )"
+
+          # Add a label to indicate that manual action is needed.
+          gh issue edit "${ISSUE_NUMBER}" \
+            --repo "${REPO}" \
+            --add-label "copilot: needs-manual-assign" || true
