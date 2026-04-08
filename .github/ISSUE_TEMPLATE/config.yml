@@ -1,0 +1,4 @@
+contact_links:
+  - name: GitHub Copilot documentation
+    url: https://docs.github.com/en/copilot/tutorials/coding-agent/improve-a-project
+    about: Learn how GitHub Copilot coding agent works end-to-end.

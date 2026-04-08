@@ -1,0 +1,64 @@
+name: Feature Request / Bug Report
+description: Submit a new feature request or bug report for the vibe-game-tool project.
+title: "[Request] "
+labels:
+  - "status: needs-triage"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to submit an issue!  
+        Please fill in as much detail as possible so the maintainer can triage and — if accepted — pass it to GitHub Copilot for implementation.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Issue type
+      options:
+        - Feature request
+        - Bug report
+        - Improvement / refactor
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What do you want to happen, or what went wrong?
+      placeholder: A clear and concise description of the issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: |
+        List the conditions that must be true for this issue to be considered "done".  
+        Use a checklist so Copilot can use it as a guide.
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: files-affected
+    attributes:
+      label: Files likely affected
+      description: Which files, modules, or areas of the code are likely involved? (helps Copilot scope its work)
+      placeholder: |
+        - game.js
+        - systems/combat.js
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Any screenshots, links, or extra information.
+    validations:
+      required: false
