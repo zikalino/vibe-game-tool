@@ -42,6 +42,8 @@ const gameStateEl = document.getElementById("gameState");
 const toolsEl = document.getElementById("tools");
 const winOverlayEl = document.getElementById("winOverlay");
 const playAgainBtn = document.getElementById("playAgainBtn");
+const playBtn = document.getElementById("playBtn");
+const editBtn = document.getElementById("editBtn");
 
 const world = buildWorld();
 const player = {
@@ -58,6 +60,8 @@ let drownTicks = 0;
 let isMousePouring = false;
 let rockRollBias = 1;
 let rockFrameCounter = 0;
+let appMode = "edit";
+let savedWorld = null;
 
 window.addEventListener("keydown", onKeyDown);
 canvas.addEventListener("mousedown", onMouseDown);
@@ -67,12 +71,14 @@ canvas.addEventListener("mouseleave", onMouseLeave);
 canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 toolsEl.addEventListener("click", onToolClick);
 playAgainBtn.addEventListener("click", resetGame);
+playBtn.addEventListener("click", startPlay);
+editBtn.addEventListener("click", startEdit);
 
 updateHud();
 requestAnimationFrame(loop);
 
 function loop() {
-  if (gameState === "playing") {
+  if (appMode === "play" && gameState === "playing") {
     rockFrameCounter += 1;
     if (rockFrameCounter >= ROCK_STEP_FRAMES) {
       rockRollBias = stepRocks({
@@ -163,7 +169,7 @@ function setSelectedTool(tool) {
 }
 
 function onMouseDown(event) {
-  if (gameState !== "playing") {
+  if (appMode === "play" && gameState !== "playing") {
     return;
   }
 
@@ -199,7 +205,11 @@ function onMouseDown(event) {
 
 function onMouseMove(event) {
   const point = getMouseTile(event);
-  if (!isMousePouring || !point || gameState !== "playing") {
+  if (!isMousePouring || !point) {
+    return;
+  }
+
+  if (appMode === "play" && gameState !== "playing") {
     return;
   }
 
@@ -245,8 +255,12 @@ function pourWaterAt(x, y, amount) {
 }
 
 function resetGame() {
-  const fresh = buildWorld();
-  copyInto(world, fresh);
+  if (appMode === "play" && savedWorld !== null) {
+    copyInto(world, savedWorld);
+  } else {
+    const fresh = buildWorld();
+    copyInto(world, fresh);
+  }
   player.x = spawnPoint.x;
   player.y = spawnPoint.y;
   player.facing = { x: 1, y: 0 };
@@ -259,10 +273,53 @@ function resetGame() {
   winOverlayEl.classList.add("hidden");
 }
 
+function startPlay() {
+  savedWorld = cloneWorld(world);
+  player.x = spawnPoint.x;
+  player.y = spawnPoint.y;
+  player.facing = { x: 1, y: 0 };
+  brokenSoil = 0;
+  drownTicks = 0;
+  gameState = "playing";
+  rockFrameCounter = 0;
+  rockRollBias = 1;
+  isMousePouring = false;
+  winOverlayEl.classList.add("hidden");
+  appMode = "play";
+  playBtn.classList.add("hidden");
+  editBtn.classList.remove("hidden");
+  updateHud();
+}
+
+function startEdit() {
+  if (savedWorld !== null) {
+    copyInto(world, savedWorld);
+    savedWorld = null;
+  }
+  player.x = spawnPoint.x;
+  player.y = spawnPoint.y;
+  player.facing = { x: 1, y: 0 };
+  brokenSoil = 0;
+  drownTicks = 0;
+  gameState = "playing";
+  isMousePouring = false;
+  winOverlayEl.classList.add("hidden");
+  appMode = "edit";
+  playBtn.classList.remove("hidden");
+  editBtn.classList.add("hidden");
+  updateHud();
+}
+
+function cloneWorld(src) {
+  return src.map((row) => row.map((tile) => ({ ...tile })));
+}
+
 function updateHud() {
   soilCountEl.textContent = `${brokenSoil} / ${SOIL_GOAL}`;
 
-  if (gameState === "playing") {
+  if (appMode === "edit") {
+    gameStateEl.textContent = "Editing";
+  } else if (gameState === "playing") {
     if (brokenSoil >= SOIL_GOAL) {
       gameStateEl.textContent = "Goal unlocked. Reach the yellow tile.";
     } else {
@@ -285,7 +342,7 @@ function onKeyDown(event) {
     return;
   }
 
-  if (gameState !== "playing") {
+  if (appMode !== "play" || gameState !== "playing") {
     return;
   }
 

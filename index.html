@@ -25,6 +25,10 @@
       <p>
         Mouse build mode: left click places selected tile, right click erases.
       </p>
+      <div class="mode-controls">
+        <button id="playBtn" type="button" class="play-btn">&#9654; Play</button>
+        <button id="editBtn" type="button" class="edit-btn hidden">&#9998; Edit</button>
+      </div>
       <div class="tools" id="tools" aria-label="Build tools">
         <button class="tool is-active" data-tool="stone">Stone [1]</button>
         <button class="tool" data-tool="soil">Soil [2]</button>
@@ -35,7 +39,7 @@
       <div class="status" aria-live="polite">
         <p>Objective: Break 8 soil blocks and reach the goal tile.</p>
         <p>Soil broken: <strong id="soilCount">0 / 8</strong></p>
-        <p>State: <strong id="gameState">Playing</strong></p>
+        <p>State: <strong id="gameState">Editing</strong></p>
       </div>
       <div class="legend">
         <span class="stone">Stone</span>
