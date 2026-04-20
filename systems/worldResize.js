@@ -1,5 +1,5 @@
-export function clampTileCount(value, maxTiles = 1000) {
-  return Math.max(1, Math.min(maxTiles, value));
+export function clampTileCount(value) {
+  return Math.max(1, Math.min(1000, value));
 }
 
 export function resizeWorldGrid(world, nextRows, nextCols, makeEmpty) {

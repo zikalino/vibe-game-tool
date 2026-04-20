@@ -285,7 +285,9 @@ function resizeMap(nextCols, nextRows) {
 
   const resizedWorld = resizeWorldGrid(world, nextRows, nextCols, makeEmpty);
   world.length = 0;
-  world.push(...resizedWorld);
+  for (const row of resizedWorld) {
+    world.push(row);
+  }
 
   if (savedWorld !== null) {
     savedWorld = resizeWorldGrid(savedWorld, nextRows, nextCols, makeEmpty);
@@ -641,22 +643,24 @@ function drawGrid() {
 
 function buildWorld() {
   const rows = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => makeEmpty()));
+  const rowCount = rows.length;
+  const colCount = rowCount > 0 ? rows[0].length : 0;
   const place = (x, y, tile) => {
-    if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
+    if (y >= 0 && y < rowCount && x >= 0 && x < colCount) {
       rows[y][x] = tile;
     }
   };
 
-  for (let x = 0; x < COLS; x += 1) {
-    place(x, ROWS - 1, makeStone());
-    if (x % 3 !== 0 && ROWS >= 2) {
-      place(x, ROWS - 2, makeSoil());
+  for (let x = 0; x < colCount; x += 1) {
+    place(x, rowCount - 1, makeStone());
+    if (x % 3 !== 0 && rowCount >= 2) {
+      place(x, rowCount - 2, makeSoil());
     }
   }
 
-  for (let y = 6; y < ROWS - 3; y += 1) {
+  for (let y = 6; y < rowCount - 3; y += 1) {
     place(0, y, makeStone());
-    place(COLS - 1, y, makeStone());
+    place(colCount - 1, y, makeStone());
   }
 
   for (let x = 6; x < 18; x += 1) {
