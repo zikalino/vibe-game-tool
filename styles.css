@@ -5,6 +5,7 @@
   --panel: #fff9f0;
   --panel-border: #d8cdbb;
   --layout-gap-edge: 16px;
+  /* Keep intrinsic map size so .game-wrap can scroll when viewport is smaller. */
   --canvas-width: 768px;
   --canvas-height: 512px;
 }
