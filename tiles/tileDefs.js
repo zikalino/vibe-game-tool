@@ -4,6 +4,9 @@ export const TileType = {
   SOIL: "soil",
   WATER: "water",
   ROCK: "rock",
+  MONSTER_H: "monster_h",
+  MONSTER_V: "monster_v",
+  MONSTER_WANDER: "monster_wander",
   GOAL: "goal",
 };
 
@@ -25,6 +28,21 @@ export function makeWater(amount) {
 
 export function makeRock() {
   return { type: TileType.ROCK };
+}
+
+export function makeMonsterHorizontal(dir = 1) {
+  return { type: TileType.MONSTER_H, dx: dir >= 0 ? 1 : -1, dy: 0 };
+}
+
+export function makeMonsterVertical(dir = 1) {
+  return { type: TileType.MONSTER_V, dx: 0, dy: dir >= 0 ? 1 : -1 };
+}
+
+export function makeMonsterWander(dx = 1, dy = 0) {
+  if (dx === 0 && dy === 0) {
+    return { type: TileType.MONSTER_WANDER, dx: 1, dy: 0 };
+  }
+  return { type: TileType.MONSTER_WANDER, dx, dy };
 }
 
 export function makeGoal() {

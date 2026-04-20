@@ -4,11 +4,15 @@ import {
   getWaterAmount,
   makeEmpty,
   makeGoal,
+  makeMonsterHorizontal,
+  makeMonsterVertical,
+  makeMonsterWander,
   makeRock,
   makeSoil,
   makeStone,
   makeWater,
 } from "./tiles/tileDefs.js";
+import { stepMonsters } from "./systems/monsterSystem.js";
 import { stepRocks } from "./systems/rockSystem.js";
 import { stepWater } from "./systems/waterSystem.js";
 
@@ -25,6 +29,7 @@ const SOIL_GOAL = 8;
 const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
 const ROCK_STEP_FRAMES = 4;
+const MONSTER_STEP_FRAMES = 6;
 
 const waterConfig = {
   min: WATER_MIN,
@@ -60,6 +65,7 @@ let drownTicks = 0;
 let isMousePouring = false;
 let rockRollBias = 1;
 let rockFrameCounter = 0;
+let monsterFrameCounter = 0;
 let appMode = "edit";
 let savedWorld = null;
 
@@ -94,6 +100,20 @@ function loop() {
         rollBias: rockRollBias,
       });
       rockFrameCounter = 0;
+    }
+    monsterFrameCounter += 1;
+    if (monsterFrameCounter >= MONSTER_STEP_FRAMES) {
+      stepMonsters({
+        world,
+        rows: ROWS,
+        cols: COLS,
+        inBounds,
+        tileType: TileType,
+        makeEmpty,
+        player,
+        setGameState,
+      });
+      monsterFrameCounter = 0;
     }
 
     for (let i = 0; i < 4; i += 1) {
@@ -200,6 +220,12 @@ function onMouseDown(event) {
     world[y][x] = makeSoil();
   } else if (selectedTool === "rock") {
     world[y][x] = makeRock();
+  } else if (selectedTool === "monsterH") {
+    world[y][x] = makeMonsterHorizontal();
+  } else if (selectedTool === "monsterV") {
+    world[y][x] = makeMonsterVertical();
+  } else if (selectedTool === "monsterWander") {
+    world[y][x] = makeMonsterWander();
   }
 }
 
@@ -269,6 +295,7 @@ function resetGame() {
   gameState = "playing";
   rockFrameCounter = 0;
   rockRollBias = 1;
+  monsterFrameCounter = 0;
   isMousePouring = false;
   winOverlayEl.classList.add("hidden");
 }
@@ -283,6 +310,7 @@ function startPlay() {
   gameState = "playing";
   rockFrameCounter = 0;
   rockRollBias = 1;
+  monsterFrameCounter = 0;
   isMousePouring = false;
   winOverlayEl.classList.add("hidden");
   appMode = "play";
@@ -302,6 +330,7 @@ function startEdit() {
   brokenSoil = 0;
   drownTicks = 0;
   gameState = "playing";
+  monsterFrameCounter = 0;
   isMousePouring = false;
   winOverlayEl.classList.add("hidden");
   appMode = "edit";
@@ -336,8 +365,17 @@ function onKeyDown(event) {
     return;
   }
 
-  if (key === "1" || key === "2" || key === "3" || key === "4" || key === "0") {
-    const map = { "1": "stone", "2": "soil", "3": "water", "4": "rock", "0": "erase" };
+  if (key === "1" || key === "2" || key === "3" || key === "4" || key === "5" || key === "6" || key === "7" || key === "0") {
+    const map = {
+      "1": "stone",
+      "2": "soil",
+      "3": "water",
+      "4": "rock",
+      "5": "monsterH",
+      "6": "monsterV",
+      "7": "monsterWander",
+      "0": "erase",
+    };
     setSelectedTool(map[key]);
     return;
   }
@@ -378,6 +416,14 @@ function tryMove(dx, dy) {
   }
 
   const target = world[ny][nx];
+  if (
+    target.type === TileType.MONSTER_H
+    || target.type === TileType.MONSTER_V
+    || target.type === TileType.MONSTER_WANDER
+  ) {
+    setGameState("lost", "A monster got you. Press R to retry.");
+    return;
+  }
   if (target.type === TileType.EMPTY || target.type === TileType.WATER || target.type === TileType.GOAL) {
     player.x = nx;
     player.y = ny;
@@ -482,6 +528,21 @@ function drawTile(x, y, tile) {
     return;
   }
 
+  if (tile.type === TileType.MONSTER_H) {
+    drawMonster(px, py, "#9857d8");
+    return;
+  }
+
+  if (tile.type === TileType.MONSTER_V) {
+    drawMonster(px, py, "#2ea55f");
+    return;
+  }
+
+  if (tile.type === TileType.MONSTER_WANDER) {
+    drawMonster(px, py, "#d86a1f");
+    return;
+  }
+
   if (tile.type === TileType.GOAL) {
     ctx.fillStyle = "#f4cb3e";
     ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
@@ -505,6 +566,19 @@ function drawPlayer() {
   const eyeY = py + 13 + player.facing.y * 4;
   ctx.fillStyle = "#fff";
   ctx.fillRect(eyeX, eyeY, 2, 2);
+}
+
+function drawMonster(px, py, bodyColor) {
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(px + 10, py + 10, 4, 4);
+  ctx.fillRect(px + 18, py + 10, 4, 4);
+  ctx.fillStyle = "#111";
+  ctx.fillRect(px + 11, py + 11, 2, 2);
+  ctx.fillRect(px + 19, py + 11, 2, 2);
 }
 
 function drawGrid() {
@@ -560,6 +634,9 @@ function buildWorld() {
   rows[7][17] = makeRock();
   rows[3][15] = makeRock();
   rows[3][16] = makeRock();
+  rows[11][8] = makeMonsterHorizontal(1);
+  rows[11][14] = makeMonsterVertical(1);
+  rows[6][20] = makeMonsterWander(-1, 0);
   rows[2][21] = makeGoal();
 
   return rows;
