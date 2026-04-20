@@ -80,6 +80,21 @@ p {
   color: #fff;
 }
 
+.monster-h {
+  background: #9857d8;
+  color: #fff;
+}
+
+.monster-v {
+  background: #2ea55f;
+  color: #fff;
+}
+
+.monster-w {
+  background: #d86a1f;
+  color: #fff;
+}
+
 .goal {
   background: #f4cb3e;
   color: #3d2e00;
