@@ -4,6 +4,10 @@
   --ink: #2d2a24;
   --panel: #fff9f0;
   --panel-border: #d8cdbb;
+  --layout-gap-edge: 16px;
+  /* Keep intrinsic map size so .game-wrap can scroll when viewport is smaller. */
+  --canvas-width: 768px;
+  --canvas-height: 512px;
 }
 
 * {
@@ -20,7 +24,7 @@ body {
 
 .layout {
   width: min(1100px, 100% - 24px);
-  margin: 16px auto;
+  margin: var(--layout-gap-edge) auto;
   display: grid;
   grid-template-columns: 300px 1fr;
   gap: 16px;
@@ -186,8 +190,14 @@ p {
 .game-wrap {
   border: 2px solid #264462;
   border-radius: 14px;
-  overflow: hidden;
+  overflow: auto;
+  resize: both;
+  min-width: 320px;
+  min-height: 240px;
+  max-width: 100%;
+  max-height: calc(100vh - (var(--layout-gap-edge) * 2));
   box-shadow: 0 10px 28px rgba(20, 45, 68, 0.18);
+  background: #dbe8f7;
 }
 
 .overlay {
@@ -242,8 +252,8 @@ p {
 
 canvas {
   display: block;
-  width: 100%;
-  height: auto;
+  width: var(--canvas-width);
+  height: var(--canvas-height);
   image-rendering: pixelated;
 }
 
