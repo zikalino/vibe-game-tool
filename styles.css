@@ -186,8 +186,14 @@ p {
 .game-wrap {
   border: 2px solid #264462;
   border-radius: 14px;
-  overflow: hidden;
+  overflow: auto;
+  resize: both;
+  min-width: 320px;
+  min-height: 240px;
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
   box-shadow: 0 10px 28px rgba(20, 45, 68, 0.18);
+  background: #dbe8f7;
 }
 
 .overlay {
@@ -242,8 +248,8 @@ p {
 
 canvas {
   display: block;
-  width: 100%;
-  height: auto;
+  width: 768px;
+  height: 512px;
   image-rendering: pixelated;
 }
 
