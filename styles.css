@@ -5,6 +5,8 @@
   --panel: #fff9f0;
   --panel-border: #d8cdbb;
   --layout-gap-edge: 16px;
+  --canvas-width: 768px;
+  --canvas-height: 512px;
 }
 
 * {
@@ -249,8 +251,8 @@ p {
 
 canvas {
   display: block;
-  width: 768px;
-  height: 512px;
+  width: var(--canvas-width);
+  height: var(--canvas-height);
   image-rendering: pixelated;
 }
 
