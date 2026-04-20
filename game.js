@@ -15,10 +15,11 @@ import {
 import { stepMonsters } from "./systems/monsterSystem.js";
 import { stepRocks } from "./systems/rockSystem.js";
 import { stepWater } from "./systems/waterSystem.js";
+import { clampTileCount, resizeWorldGrid } from "./systems/worldResize.js";
 
 const TILE_SIZE = 32;
-const COLS = 24;
-const ROWS = 16;
+let COLS = 24;
+let ROWS = 16;
 const WATER_MIN = 0.002;
 const WATER_MAX = 1;
 const WATER_COMPRESS = 0.08;
@@ -49,6 +50,7 @@ const winOverlayEl = document.getElementById("winOverlay");
 const playAgainBtn = document.getElementById("playAgainBtn");
 const playBtn = document.getElementById("playBtn");
 const editBtn = document.getElementById("editBtn");
+const mapResizeEl = document.querySelector(".map-resize");
 
 const world = buildWorld();
 const player = {
@@ -79,6 +81,7 @@ toolsEl.addEventListener("click", onToolClick);
 playAgainBtn.addEventListener("click", resetGame);
 playBtn.addEventListener("click", startPlay);
 editBtn.addEventListener("click", startEdit);
+new ResizeObserver(onMapResize).observe(mapResizeEl);
 
 updateHud();
 requestAnimationFrame(loop);
@@ -262,6 +265,42 @@ function getMouseTile(event) {
   }
 
   return { x, y };
+}
+
+function onMapResize(entries) {
+  const entry = entries[0];
+  if (!entry) {
+    return;
+  }
+
+  const nextCols = clampTileCount(Math.round(entry.contentRect.width / TILE_SIZE));
+  const nextRows = clampTileCount(Math.round(entry.contentRect.height / TILE_SIZE));
+  resizeMap(nextCols, nextRows);
+}
+
+function resizeMap(nextCols, nextRows) {
+  if (nextCols === COLS && nextRows === ROWS) {
+    return;
+  }
+
+  const resizedWorld = resizeWorldGrid(world, nextRows, nextCols, makeEmpty);
+  world.length = 0;
+  world.push(...resizedWorld);
+
+  if (savedWorld !== null) {
+    savedWorld = resizeWorldGrid(savedWorld, nextRows, nextCols, makeEmpty);
+  }
+
+  COLS = nextCols;
+  ROWS = nextRows;
+  canvas.width = COLS * TILE_SIZE;
+  canvas.height = ROWS * TILE_SIZE;
+  mapResizeEl.style.width = `${canvas.width}px`;
+  mapResizeEl.style.height = `${canvas.height}px`;
+  player.x = Math.min(player.x, COLS - 1);
+  player.y = Math.min(player.y, ROWS - 1);
+  spawnPoint.x = Math.min(spawnPoint.x, COLS - 1);
+  spawnPoint.y = Math.min(spawnPoint.y, ROWS - 1);
 }
 
 function pourWaterAt(x, y, amount) {
@@ -602,42 +641,47 @@ function drawGrid() {
 
 function buildWorld() {
   const rows = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => makeEmpty()));
+  const place = (x, y, tile) => {
+    if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
+      rows[y][x] = tile;
+    }
+  };
 
   for (let x = 0; x < COLS; x += 1) {
-    rows[ROWS - 1][x] = makeStone();
-    if (x % 3 !== 0) {
-      rows[ROWS - 2][x] = makeSoil();
+    place(x, ROWS - 1, makeStone());
+    if (x % 3 !== 0 && ROWS >= 2) {
+      place(x, ROWS - 2, makeSoil());
     }
   }
 
   for (let y = 6; y < ROWS - 3; y += 1) {
-    rows[y][0] = makeStone();
-    rows[y][COLS - 1] = makeStone();
+    place(0, y, makeStone());
+    place(COLS - 1, y, makeStone());
   }
 
   for (let x = 6; x < 18; x += 1) {
-    rows[8][x] = makeStone();
+    place(x, 8, makeStone());
   }
 
   for (let y = 4; y < 10; y += 1) {
-    rows[y][5] = makeSoil();
+    place(5, y, makeSoil());
   }
 
   for (let x = 13; x < 21; x += 1) {
-    rows[5][x] = makeSoil();
+    place(x, 5, makeSoil());
   }
 
-  rows[2][10] = makeWater(1);
-  rows[2][11] = makeWater(1);
-  rows[2][12] = makeWater(1);
-  rows[3][12] = makeWater(0.5);
-  rows[7][17] = makeRock();
-  rows[3][15] = makeRock();
-  rows[3][16] = makeRock();
-  rows[11][8] = makeMonsterHorizontal(1);
-  rows[11][14] = makeMonsterVertical(1);
-  rows[6][20] = makeMonsterWander(-1, 0);
-  rows[2][21] = makeGoal();
+  place(10, 2, makeWater(1));
+  place(11, 2, makeWater(1));
+  place(12, 2, makeWater(1));
+  place(12, 3, makeWater(0.5));
+  place(17, 7, makeRock());
+  place(15, 3, makeRock());
+  place(16, 3, makeRock());
+  place(8, 11, makeMonsterHorizontal(1));
+  place(14, 11, makeMonsterVertical(1));
+  place(20, 6, makeMonsterWander(-1, 0));
+  place(21, 2, makeGoal());
 
   return rows;
 }
