@@ -26,7 +26,7 @@
         Mouse build mode: left click places selected tile, right click erases.
       </p>
       <p>
-        Map panel supports scroll and resize: drag the bottom-right corner to expand it.
+        Resize the map itself by dragging its bottom-right corner; use the map panel scrollbars to navigate.
       </p>
       <div class="mode-controls">
         <button id="playBtn" type="button" class="play-btn">&#9654; Play</button>
@@ -60,7 +60,9 @@
       </div>
     </section>
     <section class="game-wrap">
-      <canvas id="game" width="768" height="512" aria-label="Tile game canvas"></canvas>
+      <div class="map-resize">
+        <canvas id="game" width="768" height="512" aria-label="Tile game canvas"></canvas>
+      </div>
     </section>
   </main>
 

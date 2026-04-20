@@ -191,13 +191,23 @@ p {
   border: 2px solid #264462;
   border-radius: 14px;
   overflow: auto;
-  resize: both;
+  width: min(100%, calc(var(--canvas-width) + 4px));
+  height: min(var(--canvas-height), calc(100vh - (var(--layout-gap-edge) * 2)));
   min-width: 320px;
   min-height: 240px;
   max-width: 100%;
   max-height: calc(100vh - (var(--layout-gap-edge) * 2));
   box-shadow: 0 10px 28px rgba(20, 45, 68, 0.18);
   background: #dbe8f7;
+}
+
+.map-resize {
+  width: var(--canvas-width);
+  height: var(--canvas-height);
+  min-width: 320px;
+  min-height: 240px;
+  resize: both;
+  overflow: hidden;
 }
 
 .overlay {
@@ -252,8 +262,8 @@ p {
 
 canvas {
   display: block;
-  width: var(--canvas-width);
-  height: var(--canvas-height);
+  width: 100%;
+  height: 100%;
   image-rendering: pixelated;
 }
 
