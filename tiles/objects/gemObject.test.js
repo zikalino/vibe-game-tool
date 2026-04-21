@@ -48,3 +48,18 @@ test("gem draw uses image when a loaded image is provided", () => {
 
   assert.ok(ctx.operations.some((operation) => operation[0] === "drawImage"));
 });
+
+test("gem draw falls back to procedural diamond when image is not loaded", () => {
+  const image = {
+    complete: false,
+    naturalWidth: 0,
+    naturalHeight: 0,
+  };
+  const gemObject = new GemObject(TileType, image);
+  const ctx = createMockContext();
+
+  gemObject.draw({ ctx, px: 0, py: 0, tileSize: 32 });
+
+  assert.ok(!ctx.operations.some((operation) => operation[0] === "drawImage"));
+  assert.ok(ctx.operations.some((operation) => operation[0] === "moveTo"));
+});
