@@ -255,8 +255,12 @@ function onMouseMove(event) {
     return;
   }
 
+  if (!isMousePouring) {
+    return;
+  }
+
   const point = getMouseTile(event);
-  if (!isMousePouring || !point) {
+  if (!point) {
     return;
   }
 
