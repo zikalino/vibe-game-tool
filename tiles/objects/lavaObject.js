@@ -8,6 +8,20 @@ export class LavaObject extends BaseObject {
     this.tileType = tileType;
   }
 
+  draw({ ctx, px, py, tileSize }) {
+    ctx.fillStyle = "#2c1405";
+    ctx.fillRect(px, py, tileSize, tileSize);
+    ctx.fillStyle = "#ff5f1f";
+    ctx.beginPath();
+    ctx.moveTo(px + 3, py + 24);
+    ctx.lineTo(px + 8, py + 12);
+    ctx.lineTo(px + 14, py + 20);
+    ctx.lineTo(px + 20, py + 8);
+    ctx.lineTo(px + 28, py + 24);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   tick({ x, y, world, inBounds, moved, makeLava, random }) {
     const { tileType } = this;
     if (moved[y][x] || world[y][x].type !== tileType.LAVA) {

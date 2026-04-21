@@ -10,6 +10,17 @@ export class RockObject extends BaseObject {
     return super.create({ charge: Math.max(0, charge), vx });
   }
 
+  draw({ ctx, px, py, tileSize }) {
+    ctx.fillStyle = "#4f4f4f";
+    ctx.beginPath();
+    ctx.arc(px + tileSize / 2, py + tileSize / 2, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#808080";
+    ctx.beginPath();
+    ctx.arc(px + tileSize / 2 - 4, py + tileSize / 2 - 4, 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   tick({ x, y, world, inBounds, moved, makeEmpty, makeRock, player, setGameState, rollDirs }) {
     const { tileType } = this;
     if (moved[y][x] || world[y][x].type !== tileType.ROCK) {

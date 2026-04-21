@@ -10,6 +10,10 @@ export class MonsterHorizontalObject extends BaseObject {
     return super.create({ dx: dir >= 0 ? 1 : -1, dy: 0 });
   }
 
+  draw({ ctx, px, py, tileSize }) {
+    drawMonster(ctx, px, py, tileSize, "#9857d8");
+  }
+
   tick({ x, y, world, inBounds, moved, makeEmpty, player, setGameState }) {
     const { tileType } = this;
     if (moved[y][x] || world[y][x].type !== tileType.MONSTER_H) {
@@ -70,4 +74,17 @@ function moveMonster({ world, fromX, fromY, toX, toY, makeEmpty, nextDx, nextDy 
     transDy: fromY - toY,
     transProgress: 1,
   };
+}
+
+function drawMonster(ctx, px, py, tileSize, bodyColor) {
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.arc(px + tileSize / 2, py + tileSize / 2, 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(px + 10, py + 10, 4, 4);
+  ctx.fillRect(px + 18, py + 10, 4, 4);
+  ctx.fillStyle = "#111";
+  ctx.fillRect(px + 11, py + 11, 2, 2);
+  ctx.fillRect(px + 19, py + 11, 2, 2);
 }

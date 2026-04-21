@@ -12,6 +12,21 @@ export class GemObject extends BaseObject {
     return super.create({ fallDistance: Math.max(0, fallDistance) });
   }
 
+  draw({ ctx, px, py, tileSize }) {
+    ctx.fillStyle = "#4a3c13";
+    ctx.fillRect(px, py, tileSize, tileSize);
+    ctx.fillStyle = "#66e8ff";
+    ctx.beginPath();
+    ctx.moveTo(px + 16, py + 4);
+    ctx.lineTo(px + 26, py + 16);
+    ctx.lineTo(px + 16, py + 28);
+    ctx.lineTo(px + 6, py + 16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#baf6ff";
+    ctx.fillRect(px + 14, py + 9, 4, 4);
+  }
+
   tick({ x, y, world, inBounds, moved, makeEmpty, makeDiamond, player, setGameState, rollDirs }) {
     const { tileType } = this;
     if (moved[y][x] || world[y][x].type !== tileType.DIAMOND) {
