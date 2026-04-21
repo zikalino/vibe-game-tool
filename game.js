@@ -30,6 +30,7 @@ const WATER_FLOW = 1;
 const WATER_MAX_FLOW = 0.5;
 const WATER_PASSES = 10;
 const DIAMOND_GOAL = 4;
+const MAX_ROCK_CHARGE = 8;
 const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
 const ROCK_STEP_FRAMES = 4;
@@ -560,11 +561,14 @@ function tryMove(dx, dy) {
     return;
   }
   if (target.type === TileType.ROCK && dy === 0) {
+    if (!hasRockSupport(nx, ny)) {
+      return;
+    }
     const pushX = nx + dx;
     if (!inBounds(pushX, ny) || world[ny][pushX].type !== TileType.EMPTY) {
       return;
     }
-    const nextCharge = Math.min((target.charge ?? 0) + 1, 8);
+    const nextCharge = Math.min(target.charge + 1, MAX_ROCK_CHARGE);
     world[ny][pushX] = makeRock(nextCharge, dx);
     world[ny][nx] = makeEmpty();
     player.x = nx;
@@ -587,10 +591,8 @@ function tryMove(dx, dy) {
     return;
   }
 
-  if (target.type === TileType.EMPTY || target.type === TileType.WATER || target.type === TileType.GOAL || target.type === TileType.SOIL || target.type === TileType.DIAMOND || target.type === TileType.LAVA) {
-    player.x = nx;
-    player.y = ny;
-  }
+  player.x = nx;
+  player.y = ny;
 }
 
 function breakSoil() {
@@ -887,4 +889,13 @@ function copyInto(dest, src) {
 
 function inBounds(x, y) {
   return x >= 0 && x < COLS && y >= 0 && y < ROWS;
+}
+
+function hasRockSupport(x, y) {
+  if (!inBounds(x, y + 1)) {
+    return true;
+  }
+
+  const below = world[y + 1][x];
+  return below.type === TileType.STONE || below.type === TileType.ROCK;
 }

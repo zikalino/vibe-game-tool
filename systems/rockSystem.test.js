@@ -8,7 +8,7 @@ function makeWorld(rows, cols) {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => makeEmpty()));
 }
 
-test("rock falls into empty tile below", () => {
+test("rock falls one tile down when space below is empty", () => {
   const rows = 4;
   const cols = 4;
   const world = makeWorld(rows, cols);

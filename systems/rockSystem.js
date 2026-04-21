@@ -46,8 +46,8 @@ export function stepRocks({ world, rows, cols, inBounds, tileType, makeEmpty, ma
           makeRock,
           player,
           setGameState,
-          charge: world[y][x].charge ?? 0,
-          vx: world[y][x].vx ?? 0,
+          charge: world[y][x].charge,
+          vx: world[y][x].vx,
         });
         continue;
       }
@@ -78,8 +78,8 @@ export function stepRocks({ world, rows, cols, inBounds, tileType, makeEmpty, ma
           makeRock,
           player,
           setGameState,
-          charge: world[y][x].charge ?? 0,
-          vx: world[y][x].vx ?? 0,
+          charge: world[y][x].charge,
+          vx: world[y][x].vx,
         });
         break;
       }
