@@ -2,8 +2,10 @@ import {
   TileType,
   canHoldWater,
   getWaterAmount,
+  makeDiamond,
   makeEmpty,
   makeGoal,
+  makeLava,
   makeMonsterHorizontal,
   makeMonsterVertical,
   makeMonsterWander,
@@ -27,7 +29,7 @@ const WATER_COMPRESS = 0.08;
 const WATER_FLOW = 1;
 const WATER_MAX_FLOW = 0.5;
 const WATER_PASSES = 10;
-const SOIL_GOAL = 8;
+const DIAMOND_GOAL = 4;
 const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
 const ROCK_STEP_FRAMES = 4;
@@ -48,7 +50,7 @@ const waterConfig = {
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const soilCountEl = document.getElementById("soilCount");
+const diamondCountEl = document.getElementById("diamondCount");
 const gameStateEl = document.getElementById("gameState");
 const toolsEl = document.getElementById("tools");
 const winOverlayEl = document.getElementById("winOverlay");
@@ -69,6 +71,7 @@ const player = {
 const spawnPoint = { x: player.x, y: player.y };
 
 let brokenSoil = 0;
+let collectedDiamonds = 0;
 let selectedTool = "stone";
 let gameState = "playing";
 let drownTicks = 0;
@@ -175,8 +178,13 @@ function setGameState(nextState, reason) {
 function updatePlayerState() {
   const standing = world[player.y][player.x];
 
-  if (standing.type === TileType.GOAL && brokenSoil >= SOIL_GOAL) {
+  if (standing.type === TileType.GOAL && collectedDiamonds >= DIAMOND_GOAL) {
     setGameState("won", "You won. Goal reached.");
+    return;
+  }
+
+  if (standing.type === TileType.LAVA) {
+    setGameState("lost", "You burned in lava. Press R to retry.");
     return;
   }
 
@@ -241,6 +249,10 @@ function onMouseDown(event) {
     world[y][x] = makeSoil();
   } else if (selectedTool === "rock") {
     world[y][x] = makeRock();
+  } else if (selectedTool === "diamond") {
+    world[y][x] = makeDiamond();
+  } else if (selectedTool === "lava") {
+    world[y][x] = makeLava();
   } else if (selectedTool === "monsterH") {
     world[y][x] = makeMonsterHorizontal();
   } else if (selectedTool === "monsterV") {
@@ -392,6 +404,7 @@ function resetGame() {
   player.y = spawnPoint.y;
   player.facing = { x: 1, y: 0 };
   brokenSoil = 0;
+  collectedDiamonds = 0;
   drownTicks = 0;
   gameState = "playing";
   rockFrameCounter = 0;
@@ -407,6 +420,7 @@ function startPlay() {
   player.y = spawnPoint.y;
   player.facing = { x: 1, y: 0 };
   brokenSoil = 0;
+  collectedDiamonds = 0;
   drownTicks = 0;
   gameState = "playing";
   rockFrameCounter = 0;
@@ -434,6 +448,7 @@ function startEdit() {
   player.y = spawnPoint.y;
   player.facing = { x: 1, y: 0 };
   brokenSoil = 0;
+  collectedDiamonds = 0;
   drownTicks = 0;
   gameState = "playing";
   monsterFrameCounter = 0;
@@ -457,12 +472,12 @@ function cloneWorld(src) {
 }
 
 function updateHud() {
-  soilCountEl.textContent = `${brokenSoil} / ${SOIL_GOAL}`;
+  diamondCountEl.textContent = `${collectedDiamonds} / ${DIAMOND_GOAL}`;
 
   if (appMode === "edit") {
     gameStateEl.textContent = "Editing";
   } else if (gameState === "playing") {
-    if (brokenSoil >= SOIL_GOAL) {
+    if (collectedDiamonds >= DIAMOND_GOAL) {
       gameStateEl.textContent = "Goal unlocked. Reach the yellow tile.";
     } else {
       gameStateEl.textContent = "Playing";
@@ -484,7 +499,7 @@ function onKeyDown(event) {
     return;
   }
 
-  if (key === "1" || key === "2" || key === "3" || key === "4" || key === "5" || key === "6" || key === "7" || key === "0") {
+  if (key === "1" || key === "2" || key === "3" || key === "4" || key === "5" || key === "6" || key === "7" || key === "8" || key === "9" || key === "0") {
     const map = {
       "1": "stone",
       "2": "soil",
@@ -493,6 +508,8 @@ function onKeyDown(event) {
       "5": "monsterH",
       "6": "monsterV",
       "7": "monsterWander",
+      "8": "diamond",
+      "9": "lava",
       "0": "erase",
     };
     setSelectedTool(map[key]);
@@ -542,7 +559,35 @@ function tryMove(dx, dy) {
     setGameState("lost", "A monster got you. Press R to retry.");
     return;
   }
-  if (target.type === TileType.EMPTY || target.type === TileType.WATER || target.type === TileType.GOAL) {
+  if (target.type === TileType.ROCK && dy === 0) {
+    const pushX = nx + dx;
+    if (!inBounds(pushX, ny) || world[ny][pushX].type !== TileType.EMPTY) {
+      return;
+    }
+    const nextCharge = Math.min((target.charge ?? 0) + 1, 8);
+    world[ny][pushX] = makeRock(nextCharge, dx);
+    world[ny][nx] = makeEmpty();
+    player.x = nx;
+    player.y = ny;
+    return;
+  }
+
+  if (target.type === TileType.SOIL) {
+    world[ny][nx] = makeEmpty();
+    brokenSoil += 1;
+  } else if (target.type === TileType.DIAMOND) {
+    world[ny][nx] = makeEmpty();
+    collectedDiamonds += 1;
+  } else if (
+    target.type !== TileType.EMPTY
+    && target.type !== TileType.WATER
+    && target.type !== TileType.GOAL
+    && target.type !== TileType.LAVA
+  ) {
+    return;
+  }
+
+  if (target.type === TileType.EMPTY || target.type === TileType.WATER || target.type === TileType.GOAL || target.type === TileType.SOIL || target.type === TileType.DIAMOND || target.type === TileType.LAVA) {
     player.x = nx;
     player.y = ny;
   }
@@ -642,6 +687,37 @@ function drawTile(x, y, tile) {
     ctx.fillStyle = "#808080";
     ctx.beginPath();
     ctx.arc(px + TILE_SIZE / 2 - 4, py + TILE_SIZE / 2 - 4, 7, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  if (tile.type === TileType.DIAMOND) {
+    ctx.fillStyle = "#4a3c13";
+    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+    ctx.fillStyle = "#66e8ff";
+    ctx.beginPath();
+    ctx.moveTo(px + 16, py + 4);
+    ctx.lineTo(px + 26, py + 16);
+    ctx.lineTo(px + 16, py + 28);
+    ctx.lineTo(px + 6, py + 16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#baf6ff";
+    ctx.fillRect(px + 14, py + 9, 4, 4);
+    return;
+  }
+
+  if (tile.type === TileType.LAVA) {
+    ctx.fillStyle = "#2c1405";
+    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+    ctx.fillStyle = "#ff5f1f";
+    ctx.beginPath();
+    ctx.moveTo(px + 3, py + 24);
+    ctx.lineTo(px + 8, py + 12);
+    ctx.lineTo(px + 14, py + 20);
+    ctx.lineTo(px + 20, py + 8);
+    ctx.lineTo(px + 28, py + 24);
+    ctx.closePath();
     ctx.fill();
     return;
   }
@@ -786,6 +862,13 @@ function buildWorld() {
   place(17, 7, makeRock());
   place(15, 3, makeRock());
   place(16, 3, makeRock());
+  place(7, 4, makeDiamond());
+  place(8, 4, makeDiamond());
+  place(18, 9, makeDiamond());
+  place(19, 9, makeDiamond());
+  place(4, 11, makeLava());
+  place(5, 11, makeLava());
+  place(6, 11, makeLava());
   place(8, 11, makeMonsterHorizontal(1));
   place(14, 11, makeMonsterVertical(1));
   place(20, 6, makeMonsterWander(-1, 0));

@@ -88,6 +88,16 @@ p {
   color: #fff;
 }
 
+.diamond {
+  background: #66e8ff;
+  color: #082026;
+}
+
+.lava {
+  background: #ff5f1f;
+  color: #fff;
+}
+
 .monster-h {
   background: #9857d8;
   color: #fff;

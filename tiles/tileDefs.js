@@ -4,6 +4,8 @@ export const TileType = {
   SOIL: "soil",
   WATER: "water",
   ROCK: "rock",
+  DIAMOND: "diamond",
+  LAVA: "lava",
   MONSTER_H: "monster_h",
   MONSTER_V: "monster_v",
   MONSTER_WANDER: "monster_wander",
@@ -26,8 +28,16 @@ export function makeWater(amount) {
   return { type: TileType.WATER, water: amount };
 }
 
-export function makeRock() {
-  return { type: TileType.ROCK };
+export function makeRock(charge = 0, vx = 0) {
+  return { type: TileType.ROCK, charge: Math.max(0, charge), vx };
+}
+
+export function makeDiamond() {
+  return { type: TileType.DIAMOND };
+}
+
+export function makeLava() {
+  return { type: TileType.LAVA };
 }
 
 export function makeMonsterHorizontal(dir = 1) {

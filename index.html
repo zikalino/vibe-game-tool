@@ -11,7 +11,7 @@
     <section class="panel">
       <h1>Tile Water Sandbox</h1>
       <p>
-        Move with Arrow Keys or WASD. Break soil in front of you with Space.
+        Move with Arrow Keys or WASD. Walking into soil digs it out.
       </p>
       <p>
         Press F to pour water where your facing arrow points.
@@ -41,11 +41,13 @@
         <button class="tool" data-tool="monsterH">Monster ↔ [5]</button>
         <button class="tool" data-tool="monsterV">Monster ↕ [6]</button>
         <button class="tool" data-tool="monsterWander">Monster ? [7]</button>
+        <button class="tool" data-tool="diamond">Diamond [8]</button>
+        <button class="tool" data-tool="lava">Lava [9]</button>
         <button class="tool" data-tool="erase">Erase [0]</button>
       </div>
       <div class="status" aria-live="polite">
-        <p>Objective: Break 8 soil blocks and reach the goal tile.</p>
-        <p>Soil broken: <strong id="soilCount">0 / 8</strong></p>
+        <p>Objective: Collect 4 diamonds and reach the goal tile.</p>
+        <p>Diamonds: <strong id="diamondCount">0 / 4</strong></p>
         <p>State: <strong id="gameState">Editing</strong></p>
       </div>
       <div class="legend">
@@ -53,6 +55,8 @@
         <span class="soil">Soil</span>
         <span class="water">Water</span>
         <span class="rock">Rock</span>
+        <span class="diamond">Diamond</span>
+        <span class="lava">Lava</span>
         <span class="monster-h">Monster ↔</span>
         <span class="monster-v">Monster ↕</span>
         <span class="monster-w">Monster ?</span>
