@@ -118,6 +118,10 @@ export function resolveGitHubClientId(metaClientId, windowClientId) {
   return normalizeClientId(metaClientId) || normalizeClientId(windowClientId);
 }
 
+export function resolveGitHubTokenExchangeUrl(metaTokenExchangeUrl, windowTokenExchangeUrl) {
+  return normalizeClientId(metaTokenExchangeUrl) || normalizeClientId(windowTokenExchangeUrl);
+}
+
 export function isGitHubAuthSession(auth) {
   return Boolean(
     auth
