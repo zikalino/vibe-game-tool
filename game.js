@@ -28,6 +28,7 @@ import {
   createPkceChallenge,
   createPkceVerifier,
   getGitHubAuthUnavailableMessage,
+  isGitHubAuthSession,
   parseGitHubCallbackParams,
   resolveGitHubClientId,
 } from "./systems/githubAuthSystem.js";
@@ -521,7 +522,7 @@ function startEdit() {
 }
 
 function onGitHubAuthClick() {
-  if (isGitHubAuthLoading || gameContext.githubAuth !== null) {
+  if (isGitHubAuthLoading || isGitHubAuthSession(gameContext.githubAuth)) {
     return;
   }
 
@@ -627,7 +628,13 @@ function restoreGitHubAuthFromSession() {
     return;
   }
   try {
-    gameContext.githubAuth = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (isGitHubAuthSession(parsed)) {
+      gameContext.githubAuth = parsed;
+      return;
+    }
+    sessionStorage.removeItem(GITHUB_AUTH_STORAGE_KEY);
+    gameContext.githubAuth = null;
   } catch {
     sessionStorage.removeItem(GITHUB_AUTH_STORAGE_KEY);
     gameContext.githubAuth = null;
@@ -748,7 +755,8 @@ function normalizeAuthTokenType(tokenType) {
 }
 
 function refreshGitHubAuthUi(errorMessage = "") {
-  githubAuthBtn.classList.toggle("hidden", Boolean(gameContext.githubAuth) && !isGitHubAuthLoading);
+  const hasGitHubAuthSession = isGitHubAuthSession(gameContext.githubAuth);
+  githubAuthBtn.classList.toggle("hidden", hasGitHubAuthSession && !isGitHubAuthLoading);
 
   if (isGitHubAuthLoading) {
     githubAuthBtn.textContent = "Authenticating…";
@@ -759,7 +767,7 @@ function refreshGitHubAuthUi(errorMessage = "") {
     return;
   }
 
-  if (gameContext.githubAuth) {
+  if (hasGitHubAuthSession) {
     if (githubAuthStatusEl) {
       const username = gameContext.githubAuth.user?.login;
       githubAuthStatusEl.textContent = username
