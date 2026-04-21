@@ -34,6 +34,7 @@ import {
   parseGitHubCallbackParams,
   parseGitHubTokenEndpointResponse,
   resolveGitHubClientId,
+  resolveGitHubTokenExchangeUrl,
 } from "./systems/githubAuthSystem.js";
 
 const TILE_SIZE = 32;
@@ -49,6 +50,7 @@ const DIAMOND_GOAL = 4;
 const MAX_ROCK_CHARGE = 8;
 const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
+const GITHUB_OAUTH_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
 const GITHUB_TOKEN_ERROR_SUMMARY_MAX_LENGTH = 180;
 const ROCK_STEP_FRAMES_1X = 2;
 const MONSTER_STEP_FRAMES_1X = 3;
@@ -93,7 +95,12 @@ const edgeControlsEl = document.getElementById("edgeControls");
 const mapResizeEl = document.querySelector(".map-resize");
 const gameWrapEl = document.querySelector(".game-wrap");
 const githubClientMetaEl = document.querySelector('meta[name="github-client-id"]');
+const githubTokenExchangeMetaEl = document.querySelector('meta[name="github-token-exchange-url"]');
 const githubClientId = resolveGitHubClientId(githubClientMetaEl?.content, window.VIBE_GITHUB_CLIENT_ID);
+const githubTokenExchangeUrl = resolveGitHubTokenExchangeUrl(
+  githubTokenExchangeMetaEl?.content,
+  window.VIBE_GITHUB_TOKEN_EXCHANGE_URL,
+);
 const githubAuthUnavailableMessage = getGitHubAuthUnavailableMessage();
 
 const world = buildWorld();
@@ -714,40 +721,60 @@ async function exchangeGitHubCodeForToken({
     state,
     code_verifier: codeVerifier,
   });
-  const response = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: requestBody.toString(),
-  });
+  const tokenExchangeUrls = [];
+  if (githubTokenExchangeUrl) {
+    tokenExchangeUrls.push(githubTokenExchangeUrl);
+  }
+  tokenExchangeUrls.push(GITHUB_OAUTH_TOKEN_ENDPOINT);
 
-  const responseText = await response.text();
+  let lastError = new Error(`GitHub token exchange failed. Attempted endpoints: ${tokenExchangeUrls.join(", ")}`);
+  for (const tokenExchangeUrl of tokenExchangeUrls) {
+    try {
+      console.info(`Attempting GitHub token exchange via ${tokenExchangeUrl}.`);
+      const response = await fetch(tokenExchangeUrl, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: requestBody.toString(),
+      });
 
-  if (!response.ok) {
-    const errorData = parseGitHubTokenEndpointResponse(responseText);
-    const reason = errorData?.error_description
-      || errorData?.error
-      || summarizeGitHubTokenErrorBody(responseText)
-      || "unknown error";
-    throw new Error(`GitHub token endpoint failed (${response.status}): ${reason}`);
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        const errorData = parseGitHubTokenEndpointResponse(responseText);
+        const reason = errorData?.error_description
+          || errorData?.error
+          || summarizeGitHubTokenErrorBody(responseText)
+          || "unknown error";
+        throw new Error(`GitHub token endpoint failed (${response.status}): ${reason}`);
+      }
+
+      const data = parseGitHubTokenEndpointResponse(responseText, { warnOnParseError: true }) || {};
+      if (data.error) {
+        throw new Error(data.error_description || data.error);
+      }
+
+      if (!data.access_token) {
+        throw new Error("GitHub response did not include an access token.");
+      }
+
+      return {
+        accessToken: data.access_token,
+        tokenType: normalizeAuthTokenType(data.token_type || "bearer"),
+        scope: data.scope || "",
+      };
+    } catch (error) {
+      lastError = error;
+      if (tokenExchangeUrl === GITHUB_OAUTH_TOKEN_ENDPOINT) {
+        break;
+      }
+      console.warn(`GitHub token exchange via ${tokenExchangeUrl} failed; falling back to the next endpoint.`, error);
+    }
   }
 
-  const data = parseGitHubTokenEndpointResponse(responseText, { warnOnParseError: true }) || {};
-  if (data.error) {
-    throw new Error(data.error_description || data.error);
-  }
-
-  if (!data.access_token) {
-    throw new Error("GitHub response did not include an access token.");
-  }
-
-  return {
-    accessToken: data.access_token,
-    tokenType: normalizeAuthTokenType(data.token_type || "bearer"),
-    scope: data.scope || "",
-  };
+  throw lastError;
 }
 
 async function fetchGitHubUser(accessToken, tokenType) {

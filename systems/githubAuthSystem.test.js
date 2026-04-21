@@ -12,6 +12,7 @@ import {
   parseGitHubCallbackParams,
   parseGitHubTokenEndpointResponse,
   resolveGitHubClientId,
+  resolveGitHubTokenExchangeUrl,
 } from "./githubAuthSystem.js";
 
 test("createPkceVerifier creates URL-safe PKCE verifier", () => {
@@ -77,6 +78,12 @@ test("resolveGitHubClientId returns first non-empty trimmed value", () => {
   assert.equal(resolveGitHubClientId("  meta-id  ", "window-id"), "meta-id");
   assert.equal(resolveGitHubClientId("   ", "  window-id  "), "window-id");
   assert.equal(resolveGitHubClientId("", ""), "");
+});
+
+test("resolveGitHubTokenExchangeUrl returns first non-empty trimmed value", () => {
+  assert.equal(resolveGitHubTokenExchangeUrl("  https://example.com/token  ", "https://fallback"), "https://example.com/token");
+  assert.equal(resolveGitHubTokenExchangeUrl("   ", "  https://fallback  "), "https://fallback");
+  assert.equal(resolveGitHubTokenExchangeUrl("", ""), "");
 });
 
 test("formatGitHubTokenExchangeError returns readable diagnostics", () => {
