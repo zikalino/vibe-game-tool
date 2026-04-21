@@ -5,7 +5,9 @@ import {
   buildGitHubAuthorizeUrl,
   createPkceChallenge,
   createPkceVerifier,
+  getGitHubAuthUnavailableMessage,
   parseGitHubCallbackParams,
+  resolveGitHubClientId,
 } from "./githubAuthSystem.js";
 
 test("createPkceVerifier creates URL-safe PKCE verifier", () => {
@@ -50,4 +52,17 @@ test("parseGitHubCallbackParams reads callback values", () => {
     error: null,
     errorDescription: null,
   });
+});
+
+test("resolveGitHubClientId returns first non-empty trimmed value", () => {
+  assert.equal(resolveGitHubClientId("  meta-id  ", "window-id"), "meta-id");
+  assert.equal(resolveGitHubClientId("   ", "  window-id  "), "window-id");
+  assert.equal(resolveGitHubClientId("", ""), "");
+});
+
+test("getGitHubAuthUnavailableMessage explains missing configuration", () => {
+  assert.equal(
+    getGitHubAuthUnavailableMessage(),
+    "GitHub auth unavailable: missing GitHub OAuth client ID. Set the github-client-id meta tag or window.VIBE_GITHUB_CLIENT_ID.",
+  );
 });
