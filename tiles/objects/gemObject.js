@@ -38,7 +38,7 @@ export class GemObject extends BaseObject {
       return;
     }
 
-    if ((below.type === tileType.STONE || below.type === tileType.DIAMOND) && gem.fallDistance >= SHATTER_FALL_DISTANCE) {
+    if (shouldShatter({ below, gem, tileType })) {
       world[y][x] = makeEmpty();
       return;
     }
@@ -81,6 +81,10 @@ export class GemObject extends BaseObject {
 
 function isGemSupport(tile, tileType) {
   return tile.type === tileType.STONE || tile.type === tileType.ROCK || tile.type === tileType.DIAMOND;
+}
+
+function shouldShatter({ below, gem, tileType }) {
+  return (below.type === tileType.STONE || below.type === tileType.DIAMOND) && gem.fallDistance >= SHATTER_FALL_DISTANCE;
 }
 
 function moveGem({ fromX, fromY, toX, toY, moved, world, makeEmpty, makeDiamond, player, setGameState, fallDistance = 0 }) {
