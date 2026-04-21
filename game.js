@@ -120,10 +120,13 @@ function loop() {
         inBounds,
         makeEmpty,
         makeRock,
+        makeDiamond,
+        makeLava,
         player,
         setGameState,
         rollBias: rockRollBias,
-        shouldTickType: (type) => (type === TileType.ROCK && shouldTickRocks) || (isMonsterType(type) && shouldTickMonsters),
+        shouldTickType: (type) => ((type === TileType.ROCK || type === TileType.DIAMOND || type === TileType.LAVA) && shouldTickRocks)
+          || (isMonsterType(type) && shouldTickMonsters),
       });
     }
 
