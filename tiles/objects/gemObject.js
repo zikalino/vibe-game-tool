@@ -93,6 +93,6 @@ function moveGem({ fromX, fromY, toX, toY, moved, world, makeEmpty, makeDiamond,
   moved[toY][toX] = true;
 
   if (player.x === toX && player.y === toY) {
-    setGameState("lost", "You were crushed by a falling gem. Press R to retry.");
+    setGameState("lost", "You were crushed by a gem. Press R to retry.");
   }
 }
