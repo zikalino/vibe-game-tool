@@ -747,6 +747,8 @@ function normalizeAuthTokenType(tokenType) {
 }
 
 function refreshGitHubAuthUi(errorMessage = "") {
+  githubAuthBtn.classList.toggle("hidden", Boolean(gameContext.githubAuth) && !isGitHubAuthLoading);
+
   if (isGitHubAuthLoading) {
     githubAuthBtn.textContent = "Authenticating…";
     githubAuthBtn.disabled = true;
@@ -757,8 +759,6 @@ function refreshGitHubAuthUi(errorMessage = "") {
   }
 
   if (gameContext.githubAuth) {
-    githubAuthBtn.textContent = "GitHub Connected";
-    githubAuthBtn.disabled = true;
     if (githubAuthStatusEl) {
       const username = gameContext.githubAuth.user?.login;
       githubAuthStatusEl.textContent = username
