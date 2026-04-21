@@ -21,6 +21,14 @@ import { stepWater } from "./systems/waterSystem.js";
 import { clampTileCount, resizeWorldGridWithOffset } from "./systems/worldResize.js";
 import { calculateCameraTarget, stepSmoothScroll } from "./systems/cameraSystem.js";
 import { collectTransitioningTiles } from "./systems/transitionRenderSystem.js";
+import {
+  GITHUB_AUTH_PENDING_KEY,
+  GITHUB_AUTH_STORAGE_KEY,
+  buildGitHubAuthorizeUrl,
+  createPkceChallenge,
+  createPkceVerifier,
+  parseGitHubCallbackParams,
+} from "./systems/githubAuthSystem.js";
 
 const TILE_SIZE = 32;
 let COLS = 24;
@@ -69,10 +77,13 @@ const playAgainBtn = document.getElementById("playAgainBtn");
 const playBtn = document.getElementById("playBtn");
 const editBtn = document.getElementById("editBtn");
 const githubAuthBtn = document.getElementById("githubAuthBtn");
+const githubAuthStatusEl = document.getElementById("githubAuthStatus");
 const exitPlayBtn = document.getElementById("exitPlayBtn");
 const edgeControlsEl = document.getElementById("edgeControls");
 const mapResizeEl = document.querySelector(".map-resize");
 const gameWrapEl = document.querySelector(".game-wrap");
+const githubClientMetaEl = document.querySelector('meta[name="github-client-id"]');
+const githubClientId = (githubClientMetaEl?.content || "").trim() || window.VIBE_GITHUB_CLIENT_ID || "";
 
 const world = buildWorld();
 const player = {
@@ -95,6 +106,12 @@ let appMode = "edit";
 let savedWorld = null;
 let cameraScrollLeft = 0;
 let cameraScrollTop = 0;
+let isGitHubAuthLoading = false;
+
+const gameContext = {
+  githubAuth: null,
+};
+window.vibeGameContext = gameContext;
 
 window.addEventListener("keydown", onKeyDown);
 canvas.addEventListener("mousedown", onMouseDown);
@@ -113,6 +130,7 @@ new ResizeObserver(onMapResize).observe(mapResizeEl);
 edgeControlsEl.style.width = `${canvas.width}px`;
 edgeControlsEl.style.height = `${canvas.height}px`;
 
+void initializeGitHubAuth();
 updateHud();
 requestAnimationFrame(loop);
 
@@ -483,7 +501,20 @@ function startEdit() {
 }
 
 function onGitHubAuthClick() {
-  window.alert("GitHub authentication is coming soon. Please check back later.");
+  if (isGitHubAuthLoading || gameContext.githubAuth !== null) {
+    return;
+  }
+
+  if (!githubClientId) {
+    window.alert("GitHub authentication is not available right now.");
+    return;
+  }
+
+  beginGitHubAuth().catch((error) => {
+    console.error("GitHub auth start failed:", error);
+    isGitHubAuthLoading = false;
+    refreshGitHubAuthUi("Failed to start GitHub authentication.");
+  });
 }
 
 function cloneWorld(src) {
@@ -501,6 +532,236 @@ function updateHud() {
     } else {
       gameStateEl.textContent = "Playing";
     }
+  }
+}
+
+async function initializeGitHubAuth() {
+  restoreGitHubAuthFromSession();
+
+  const callbackParams = parseGitHubCallbackParams(window.location.search);
+  if (!callbackParams) {
+    refreshGitHubAuthUi();
+    return;
+  }
+
+  clearAuthCallbackQueryString();
+
+  if (callbackParams.error) {
+    clearPendingGitHubAuth();
+    refreshGitHubAuthUi(`GitHub auth failed: ${callbackParams.error}`);
+    return;
+  }
+
+  if (!callbackParams.code) {
+    clearPendingGitHubAuth();
+    refreshGitHubAuthUi("GitHub auth failed: missing authorization code.");
+    return;
+  }
+
+  const pending = readPendingGitHubAuth();
+  if (!pending || pending.state !== callbackParams.state) {
+    clearPendingGitHubAuth();
+    refreshGitHubAuthUi("GitHub auth failed: invalid login state.");
+    return;
+  }
+
+  if (!githubClientId) {
+    clearPendingGitHubAuth();
+    refreshGitHubAuthUi("GitHub auth is not configured.");
+    return;
+  }
+
+  isGitHubAuthLoading = true;
+  refreshGitHubAuthUi("Completing GitHub login…");
+  try {
+    const token = await exchangeGitHubCodeForToken({
+      code: callbackParams.code,
+      redirectUri: pending.redirectUri,
+      state: pending.state,
+      codeVerifier: pending.codeVerifier,
+    });
+    const githubUser = await fetchGitHubUser(token.accessToken, token.tokenType);
+    gameContext.githubAuth = {
+      ...token,
+      user: githubUser,
+      authenticatedAt: Date.now(),
+    };
+    sessionStorage.setItem(GITHUB_AUTH_STORAGE_KEY, JSON.stringify(gameContext.githubAuth));
+    refreshGitHubAuthUi();
+  } catch (error) {
+    console.error("GitHub auth callback failed:", error);
+    gameContext.githubAuth = null;
+    sessionStorage.removeItem(GITHUB_AUTH_STORAGE_KEY);
+    refreshGitHubAuthUi("GitHub auth failed while exchanging token.");
+  } finally {
+    clearPendingGitHubAuth();
+    isGitHubAuthLoading = false;
+    refreshGitHubAuthUi();
+  }
+}
+
+function restoreGitHubAuthFromSession() {
+  const raw = sessionStorage.getItem(GITHUB_AUTH_STORAGE_KEY);
+  if (!raw) {
+    gameContext.githubAuth = null;
+    return;
+  }
+  try {
+    gameContext.githubAuth = JSON.parse(raw);
+  } catch {
+    sessionStorage.removeItem(GITHUB_AUTH_STORAGE_KEY);
+    gameContext.githubAuth = null;
+  }
+}
+
+function readPendingGitHubAuth() {
+  const raw = sessionStorage.getItem(GITHUB_AUTH_PENDING_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    sessionStorage.removeItem(GITHUB_AUTH_PENDING_KEY);
+    return null;
+  }
+}
+
+function clearPendingGitHubAuth() {
+  sessionStorage.removeItem(GITHUB_AUTH_PENDING_KEY);
+}
+
+function clearAuthCallbackQueryString() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("code");
+  url.searchParams.delete("state");
+  url.searchParams.delete("error");
+  url.searchParams.delete("error_description");
+  const cleaned = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, document.title, cleaned);
+}
+
+async function beginGitHubAuth() {
+  isGitHubAuthLoading = true;
+  refreshGitHubAuthUi("Redirecting to GitHub…");
+
+  const codeVerifier = createPkceVerifier();
+  const codeChallenge = await createPkceChallenge(codeVerifier);
+  const state = createPkceVerifier(40);
+  const redirectUri = `${window.location.origin}${window.location.pathname}`;
+  sessionStorage.setItem(GITHUB_AUTH_PENDING_KEY, JSON.stringify({
+    state,
+    codeVerifier,
+    redirectUri,
+  }));
+
+  const authUrl = buildGitHubAuthorizeUrl({
+    clientId: githubClientId,
+    redirectUri,
+    state,
+    codeChallenge,
+  });
+  window.location.assign(authUrl);
+}
+
+async function exchangeGitHubCodeForToken({
+  code,
+  redirectUri,
+  state,
+  codeVerifier,
+}) {
+  const response = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      client_id: githubClientId,
+      code,
+      redirect_uri: redirectUri,
+      state,
+      code_verifier: codeVerifier,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`GitHub token endpoint failed (${response.status})`);
+  }
+
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error_description || data.error);
+  }
+
+  if (!data.access_token) {
+    throw new Error("GitHub response did not include an access token.");
+  }
+
+  return {
+    accessToken: data.access_token,
+    tokenType: normalizeAuthTokenType(data.token_type || "bearer"),
+    scope: data.scope || "",
+  };
+}
+
+async function fetchGitHubUser(accessToken, tokenType) {
+  const authTokenType = normalizeAuthTokenType(tokenType);
+  const response = await fetch("https://api.github.com/user", {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `${authTokenType} ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    console.warn(`GitHub user fetch failed with status ${response.status}.`);
+    return null;
+  }
+  return response.json();
+}
+
+function normalizeAuthTokenType(tokenType) {
+  if (typeof tokenType === "string" && tokenType.toLowerCase() === "bearer") {
+    return "Bearer";
+  }
+  return tokenType;
+}
+
+function refreshGitHubAuthUi(errorMessage = "") {
+  if (isGitHubAuthLoading) {
+    githubAuthBtn.textContent = "Authenticating…";
+    githubAuthBtn.disabled = true;
+    if (githubAuthStatusEl) {
+      githubAuthStatusEl.textContent = errorMessage || "GitHub authentication in progress.";
+    }
+    return;
+  }
+
+  if (gameContext.githubAuth) {
+    githubAuthBtn.textContent = "GitHub Connected";
+    githubAuthBtn.disabled = true;
+    if (githubAuthStatusEl) {
+      const username = gameContext.githubAuth.user?.login;
+      githubAuthStatusEl.textContent = username
+        ? `GitHub connected as @${username}.`
+        : "GitHub connected.";
+    }
+    return;
+  }
+
+  if (!githubClientId) {
+    githubAuthBtn.textContent = "GitHub Auth Unavailable";
+    githubAuthBtn.disabled = true;
+    if (githubAuthStatusEl) {
+      githubAuthStatusEl.textContent = "GitHub authentication is not available.";
+    }
+    return;
+  }
+
+  githubAuthBtn.textContent = "Authenticate with GitHub";
+  githubAuthBtn.disabled = false;
+  if (githubAuthStatusEl) {
+    githubAuthStatusEl.textContent = errorMessage || "GitHub: Not connected.";
   }
 }
 
