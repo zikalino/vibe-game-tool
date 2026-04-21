@@ -1,10 +1,14 @@
 import { BaseObject } from "./baseObject.js";
+import { EmptyObject } from "./objects/emptyObject.js";
+import { GoalObject } from "./objects/goalObject.js";
 import { MonsterHorizontalObject } from "./objects/monsterHorizontalObject.js";
 import { MonsterVerticalObject } from "./objects/monsterVerticalObject.js";
 import { MonsterWanderObject } from "./objects/monsterWanderObject.js";
 import { GemObject } from "./objects/gemObject.js";
 import { LavaObject } from "./objects/lavaObject.js";
 import { RockObject } from "./objects/rockObject.js";
+import { SoilObject } from "./objects/soilObject.js";
+import { StoneObject } from "./objects/stoneObject.js";
 import { WaterObject } from "./objects/waterObject.js";
 
 export const TileType = {
@@ -22,9 +26,9 @@ export const TileType = {
 };
 
 const objectDefinitions = {
-  [TileType.EMPTY]: new BaseObject(TileType.EMPTY),
-  [TileType.STONE]: new BaseObject(TileType.STONE),
-  [TileType.SOIL]: new BaseObject(TileType.SOIL),
+  [TileType.EMPTY]: new EmptyObject(TileType),
+  [TileType.STONE]: new StoneObject(TileType),
+  [TileType.SOIL]: new SoilObject(TileType),
   [TileType.WATER]: new WaterObject(TileType.WATER),
   [TileType.ROCK]: new RockObject(TileType),
   [TileType.DIAMOND]: new GemObject(TileType),
@@ -32,11 +36,15 @@ const objectDefinitions = {
   [TileType.MONSTER_H]: new MonsterHorizontalObject(TileType),
   [TileType.MONSTER_V]: new MonsterVerticalObject(TileType),
   [TileType.MONSTER_WANDER]: new MonsterWanderObject(TileType),
-  [TileType.GOAL]: new BaseObject(TileType.GOAL),
+  [TileType.GOAL]: new GoalObject(TileType),
 };
 
 export function isMonsterType(type) {
   return type === TileType.MONSTER_H || type === TileType.MONSTER_V || type === TileType.MONSTER_WANDER;
+}
+
+export function getTileObject(type) {
+  return objectDefinitions[type] || objectDefinitions[TileType.EMPTY];
 }
 
 export function makeEmpty() {

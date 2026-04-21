@@ -7,5 +7,7 @@ export class BaseObject {
     return { type: this.type, ...state };
   }
 
+  draw() {}
+
   tick() {}
 }

@@ -6,6 +6,7 @@ import {
   makeDiamond,
   makeEmpty,
   makeGoal,
+  getTileObject,
   makeLava,
   makeMonsterHorizontal,
   makeMonsterVertical,
@@ -666,110 +667,14 @@ function drawTile(x, y, tile, applyTransition = true) {
   const transition = applyTransition ? getTileTransitionOffset(tile) : { x: 0, y: 0 };
   const px = x * TILE_SIZE + transition.x;
   const py = y * TILE_SIZE + transition.y;
-
-  if (tile.type === TileType.EMPTY) {
-    ctx.fillStyle = "#f2efe7";
-    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-    return;
-  }
-
-  if (tile.type === TileType.STONE) {
-    ctx.fillStyle = "#7f868d";
-    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-    ctx.fillStyle = "#6a7075";
-    ctx.fillRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
-    return;
-  }
-
-  if (tile.type === TileType.SOIL) {
-    ctx.fillStyle = "#9f7746";
-    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-    ctx.fillStyle = "#835e35";
-    for (let i = 0; i < 4; i += 1) {
-      ctx.fillRect(px + 5 + i * 6, py + 5 + (i % 2) * 8, 2, 2);
-    }
-    return;
-  }
-
-  if (tile.type === TileType.WATER) {
-    ctx.fillStyle = "#e8f2ff";
-    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-
-    const shownWater = Math.min(WATER_MAX, tile.water);
-    const h = Math.max(1, Math.floor(shownWater * TILE_SIZE));
-    ctx.fillStyle = "#4f9ce5";
-    ctx.fillRect(px, py + TILE_SIZE - h, TILE_SIZE, h);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-    ctx.fillRect(px + 2, py + TILE_SIZE - h + 1, TILE_SIZE - 4, 2);
-    return;
-  }
-
-  if (tile.type === TileType.ROCK) {
-    ctx.fillStyle = "#4f4f4f";
-    ctx.beginPath();
-    ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 14, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#808080";
-    ctx.beginPath();
-    ctx.arc(px + TILE_SIZE / 2 - 4, py + TILE_SIZE / 2 - 4, 7, 0, Math.PI * 2);
-    ctx.fill();
-    return;
-  }
-
-  if (tile.type === TileType.DIAMOND) {
-    ctx.fillStyle = "#4a3c13";
-    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-    ctx.fillStyle = "#66e8ff";
-    ctx.beginPath();
-    ctx.moveTo(px + 16, py + 4);
-    ctx.lineTo(px + 26, py + 16);
-    ctx.lineTo(px + 16, py + 28);
-    ctx.lineTo(px + 6, py + 16);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#baf6ff";
-    ctx.fillRect(px + 14, py + 9, 4, 4);
-    return;
-  }
-
-  if (tile.type === TileType.LAVA) {
-    ctx.fillStyle = "#2c1405";
-    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-    ctx.fillStyle = "#ff5f1f";
-    ctx.beginPath();
-    ctx.moveTo(px + 3, py + 24);
-    ctx.lineTo(px + 8, py + 12);
-    ctx.lineTo(px + 14, py + 20);
-    ctx.lineTo(px + 20, py + 8);
-    ctx.lineTo(px + 28, py + 24);
-    ctx.closePath();
-    ctx.fill();
-    return;
-  }
-
-  if (tile.type === TileType.MONSTER_H) {
-    drawMonster(px, py, "#9857d8");
-    return;
-  }
-
-  if (tile.type === TileType.MONSTER_V) {
-    drawMonster(px, py, "#2ea55f");
-    return;
-  }
-
-  if (tile.type === TileType.MONSTER_WANDER) {
-    drawMonster(px, py, "#d86a1f");
-    return;
-  }
-
-  if (tile.type === TileType.GOAL) {
-    ctx.fillStyle = "#f4cb3e";
-    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-    ctx.fillStyle = "#fff3ae";
-    ctx.fillRect(px + 8, py + 8, 16, 16);
-    ctx.fillStyle = "#8f6f00";
-    ctx.fillRect(px + 13, py + 13, 6, 6);
-  }
+  const tileObject = getTileObject(tile.type);
+  tileObject.draw({
+    ctx,
+    tile,
+    px,
+    py,
+    tileSize: TILE_SIZE,
+  });
 }
 
 function drawPlayer() {
@@ -785,19 +690,6 @@ function drawPlayer() {
   const eyeY = py + 13 + player.facing.y * 4;
   ctx.fillStyle = "#fff";
   ctx.fillRect(eyeX, eyeY, 2, 2);
-}
-
-function drawMonster(px, py, bodyColor) {
-  ctx.fillStyle = bodyColor;
-  ctx.beginPath();
-  ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(px + 10, py + 10, 4, 4);
-  ctx.fillRect(px + 18, py + 10, 4, 4);
-  ctx.fillStyle = "#111";
-  ctx.fillRect(px + 11, py + 11, 2, 2);
-  ctx.fillRect(px + 19, py + 11, 2, 2);
 }
 
 function drawGrid() {
