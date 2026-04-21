@@ -413,6 +413,7 @@ function startPlay() {
   playBtn.classList.add("hidden");
   editBtn.classList.remove("hidden");
   exitPlayBtn.classList.remove("hidden");
+  edgeControlsEl.classList.add("hidden");
   updateHud();
 }
 
@@ -439,6 +440,7 @@ function startEdit() {
   playBtn.classList.remove("hidden");
   editBtn.classList.add("hidden");
   exitPlayBtn.classList.add("hidden");
+  edgeControlsEl.classList.remove("hidden");
   updateHud();
 }
 
