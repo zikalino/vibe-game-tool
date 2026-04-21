@@ -208,7 +208,10 @@ p {
 
 .edge-controls {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: var(--canvas-width);
+  height: var(--canvas-height);
   z-index: 5;
 }
 

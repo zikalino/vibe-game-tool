@@ -319,6 +319,8 @@ function resizeMapWithOffset(nextCols, nextRows, offsetX, offsetY) {
   canvas.height = ROWS * TILE_SIZE;
   mapResizeEl.style.width = `${canvas.width}px`;
   mapResizeEl.style.height = `${canvas.height}px`;
+  edgeControlsEl.style.width = `${canvas.width}px`;
+  edgeControlsEl.style.height = `${canvas.height}px`;
   player.x = Math.min(player.x + offsetX, COLS - 1);
   player.y = Math.min(player.y + offsetY, ROWS - 1);
   spawnPoint.x = Math.min(spawnPoint.x + offsetX, COLS - 1);
