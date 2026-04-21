@@ -88,6 +88,37 @@ export function formatGitHubTokenExchangeError(error) {
   return message;
 }
 
+export function parseGitHubTokenEndpointResponse(responseText, options = {}) {
+  if (!responseText) {
+    return {};
+  }
+  try {
+    return JSON.parse(responseText);
+  } catch {
+    const params = new URLSearchParams(responseText);
+    const hasKnownTokenField = (
+      params.has("access_token")
+      || params.has("token_type")
+      || params.has("scope")
+      || params.has("error")
+      || params.has("error_description")
+    );
+    if (hasKnownTokenField) {
+      return {
+        access_token: params.get("access_token"),
+        token_type: params.get("token_type"),
+        scope: params.get("scope"),
+        error: params.get("error"),
+        error_description: params.get("error_description"),
+      };
+    }
+    if (options.warnOnParseError) {
+      console.warn("GitHub token endpoint returned non-JSON response.");
+    }
+    return {};
+  }
+}
+
 export function resolveGitHubClientId(metaClientId, windowClientId) {
   return normalizeClientId(metaClientId) || normalizeClientId(windowClientId);
 }

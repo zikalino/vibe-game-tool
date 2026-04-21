@@ -10,6 +10,7 @@ import {
   getGitHubAuthUnavailableMessage,
   isGitHubAuthSession,
   parseGitHubCallbackParams,
+  parseGitHubTokenEndpointResponse,
   resolveGitHubClientId,
 } from "./githubAuthSystem.js";
 
@@ -91,6 +92,26 @@ test("formatGitHubTokenExchangeError returns readable diagnostics", () => {
     formatGitHubTokenExchangeError({}),
     "unknown error",
   );
+});
+
+test("parseGitHubTokenEndpointResponse parses JSON token responses", () => {
+  const parsed = parseGitHubTokenEndpointResponse("{\"access_token\":\"abc\",\"scope\":\"read:user\",\"token_type\":\"bearer\"}");
+  assert.deepEqual(parsed, {
+    access_token: "abc",
+    scope: "read:user",
+    token_type: "bearer",
+  });
+});
+
+test("parseGitHubTokenEndpointResponse parses urlencoded token responses", () => {
+  const parsed = parseGitHubTokenEndpointResponse("access_token=abc&scope=read%3Auser&token_type=bearer");
+  assert.deepEqual(parsed, {
+    access_token: "abc",
+    token_type: "bearer",
+    scope: "read:user",
+    error: null,
+    error_description: null,
+  });
 });
 
 test("isGitHubAuthSession checks required auth token shape", () => {
