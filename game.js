@@ -700,22 +700,31 @@ async function exchangeGitHubCodeForToken({
 
   return {
     accessToken: data.access_token,
-    tokenType: data.token_type || "bearer",
+    tokenType: normalizeAuthTokenType(data.token_type || "bearer"),
     scope: data.scope || "",
   };
 }
 
 async function fetchGitHubUser(accessToken, tokenType) {
+  const authTokenType = normalizeAuthTokenType(tokenType);
   const response = await fetch("https://api.github.com/user", {
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `${tokenType} ${accessToken}`,
+      Authorization: `${authTokenType} ${accessToken}`,
     },
   });
   if (!response.ok) {
+    console.warn(`GitHub user fetch failed with status ${response.status}.`);
     return null;
   }
   return response.json();
+}
+
+function normalizeAuthTokenType(tokenType) {
+  if (typeof tokenType === "string" && tokenType.toLowerCase() === "bearer") {
+    return "Bearer";
+  }
+  return tokenType;
 }
 
 function refreshGitHubAuthUi(errorMessage = "") {
