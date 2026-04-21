@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { stepRocks } from "./rockSystem.js";
-import { TileType, makeEmpty, makeRock, makeStone } from "../tiles/tileDefs.js";
+import { TileType, makeEmpty, makeRock, makeStone, tickWorldObjects } from "../tiles/tileDefs.js";
 
 function makeWorld(rows, cols) {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => makeEmpty()));
@@ -14,17 +13,17 @@ test("rock falls one tile down when space below is empty", () => {
   const world = makeWorld(rows, cols);
   world[1][1] = makeRock();
 
-  stepRocks({
+  tickWorldObjects({
     world,
     rows,
     cols,
     inBounds: (x, y) => x >= 0 && x < cols && y >= 0 && y < rows,
-    tileType: TileType,
     makeEmpty,
     makeRock,
     player: { x: 0, y: 0 },
     setGameState: () => {},
     rollBias: 1,
+    shouldTickType: (type) => type === TileType.ROCK,
   });
 
   assert.equal(world[2][1].type, TileType.ROCK);
@@ -38,17 +37,17 @@ test("charged rock moves horizontally and loses charge", () => {
   world[2][2] = makeStone();
   world[2][3] = makeStone();
 
-  stepRocks({
+  tickWorldObjects({
     world,
     rows,
     cols,
     inBounds: (x, y) => x >= 0 && x < cols && y >= 0 && y < rows,
-    tileType: TileType,
     makeEmpty,
     makeRock,
     player: { x: 0, y: 0 },
     setGameState: () => {},
     rollBias: 1,
+    shouldTickType: (type) => type === TileType.ROCK,
   });
 
   assert.equal(world[1][3].type, TileType.ROCK);
@@ -67,17 +66,17 @@ test("charged rock drops charge when blocked", () => {
   world[2][1] = makeStone();
   world[2][3] = makeStone();
 
-  stepRocks({
+  tickWorldObjects({
     world,
     rows,
     cols,
     inBounds: (x, y) => x >= 0 && x < cols && y >= 0 && y < rows,
-    tileType: TileType,
     makeEmpty,
     makeRock,
     player: { x: 0, y: 0 },
     setGameState: () => {},
     rollBias: 1,
+    shouldTickType: (type) => type === TileType.ROCK,
   });
 
   assert.equal(world[1][2].type, TileType.ROCK);
