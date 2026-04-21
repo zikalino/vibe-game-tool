@@ -210,7 +210,7 @@ function setSelectedTool(tool) {
 }
 
 function onMouseDown(event) {
-  if (appMode === "play" && gameState !== "playing") {
+  if (appMode === "play") {
     return;
   }
 
@@ -251,12 +251,16 @@ function onMouseDown(event) {
 }
 
 function onMouseMove(event) {
-  const point = getMouseTile(event);
-  if (!isMousePouring || !point) {
+  if (appMode === "play") {
     return;
   }
 
-  if (appMode === "play" && gameState !== "playing") {
+  if (!isMousePouring) {
+    return;
+  }
+
+  const point = getMouseTile(event);
+  if (!point) {
     return;
   }
 
