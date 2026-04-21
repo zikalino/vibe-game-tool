@@ -198,7 +198,22 @@ p {
   background: #1b518d;
 }
 
+.github-auth-btn:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.github-auth-status {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: #274d76;
+}
+
 body.play-mode .github-auth-btn {
+  display: none;
+}
+
+body.play-mode .github-auth-status {
   display: none;
 }
 

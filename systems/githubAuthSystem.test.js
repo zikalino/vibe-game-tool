@@ -1,0 +1,53 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  buildGitHubAuthorizeUrl,
+  createPkceChallenge,
+  createPkceVerifier,
+  parseGitHubCallbackParams,
+} from "./githubAuthSystem.js";
+
+test("createPkceVerifier creates URL-safe PKCE verifier", () => {
+  const verifier = createPkceVerifier();
+
+  assert.equal(verifier.length, 96);
+  assert.match(verifier, /^[A-Za-z0-9\-._~]+$/);
+});
+
+test("createPkceChallenge creates deterministic challenge for verifier", async () => {
+  const challenge = await createPkceChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk");
+  assert.equal(challenge, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+});
+
+test("buildGitHubAuthorizeUrl includes expected OAuth parameters", () => {
+  const url = new URL(buildGitHubAuthorizeUrl({
+    clientId: "abc123",
+    redirectUri: "https://example.com/callback",
+    state: "xyz",
+    codeChallenge: "challenge",
+  }));
+
+  assert.equal(url.origin, "https://github.com");
+  assert.equal(url.pathname, "/login/oauth/authorize");
+  assert.equal(url.searchParams.get("client_id"), "abc123");
+  assert.equal(url.searchParams.get("redirect_uri"), "https://example.com/callback");
+  assert.equal(url.searchParams.get("scope"), "read:user");
+  assert.equal(url.searchParams.get("state"), "xyz");
+  assert.equal(url.searchParams.get("code_challenge"), "challenge");
+  assert.equal(url.searchParams.get("code_challenge_method"), "S256");
+});
+
+test("parseGitHubCallbackParams returns null when no callback data is present", () => {
+  assert.equal(parseGitHubCallbackParams("?foo=bar"), null);
+});
+
+test("parseGitHubCallbackParams reads callback values", () => {
+  const parsed = parseGitHubCallbackParams("?code=abc&state=xyz");
+  assert.deepEqual(parsed, {
+    code: "abc",
+    state: "xyz",
+    error: null,
+    errorDescription: null,
+  });
+});
