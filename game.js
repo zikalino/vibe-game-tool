@@ -466,7 +466,6 @@ function onKeyDown(event) {
     tryMove(1, 0);
   } else if (key === " ") {
     breakSoil();
-    event.preventDefault();
   }
 }
 
