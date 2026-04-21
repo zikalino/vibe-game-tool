@@ -748,6 +748,7 @@ function normalizeAuthTokenType(tokenType) {
 
 function refreshGitHubAuthUi(errorMessage = "") {
   if (isGitHubAuthLoading) {
+    githubAuthBtn.classList.remove("hidden");
     githubAuthBtn.textContent = "Authenticating…";
     githubAuthBtn.disabled = true;
     if (githubAuthStatusEl) {
@@ -757,7 +758,7 @@ function refreshGitHubAuthUi(errorMessage = "") {
   }
 
   if (gameContext.githubAuth) {
-    githubAuthBtn.textContent = "GitHub Connected";
+    githubAuthBtn.classList.add("hidden");
     githubAuthBtn.disabled = true;
     if (githubAuthStatusEl) {
       const username = gameContext.githubAuth.user?.login;
@@ -769,6 +770,7 @@ function refreshGitHubAuthUi(errorMessage = "") {
   }
 
   if (!githubClientId) {
+    githubAuthBtn.classList.remove("hidden");
     githubAuthBtn.textContent = "GitHub Auth Unavailable";
     githubAuthBtn.disabled = true;
     if (githubAuthStatusEl) {
@@ -777,6 +779,7 @@ function refreshGitHubAuthUi(errorMessage = "") {
     return;
   }
 
+  githubAuthBtn.classList.remove("hidden");
   githubAuthBtn.textContent = "Authenticate with GitHub";
   githubAuthBtn.disabled = false;
   if (githubAuthStatusEl) {
