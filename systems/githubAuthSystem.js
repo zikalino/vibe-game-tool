@@ -4,6 +4,10 @@ const DEFAULT_SCOPE = "read:user";
 export const GITHUB_AUTH_STORAGE_KEY = "vibeGame.githubAuth";
 export const GITHUB_AUTH_PENDING_KEY = "vibeGame.githubAuth.pending";
 
+function normalizeClientId(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function base64UrlEncode(bytes) {
   const text = String.fromCharCode(...bytes);
   return btoa(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
@@ -61,4 +65,12 @@ export function parseGitHubCallbackParams(search) {
     error: params.get("error"),
     errorDescription: params.get("error_description"),
   };
+}
+
+export function resolveGitHubClientId(metaClientId, windowClientId) {
+  return normalizeClientId(metaClientId) || normalizeClientId(windowClientId);
+}
+
+export function getGitHubAuthUnavailableMessage() {
+  return "GitHub auth unavailable: missing GitHub OAuth client ID. Set the github-client-id meta tag or window.VIBE_GITHUB_CLIENT_ID.";
 }

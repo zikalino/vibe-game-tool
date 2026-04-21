@@ -27,7 +27,9 @@ import {
   buildGitHubAuthorizeUrl,
   createPkceChallenge,
   createPkceVerifier,
+  getGitHubAuthUnavailableMessage,
   parseGitHubCallbackParams,
+  resolveGitHubClientId,
 } from "./systems/githubAuthSystem.js";
 
 const TILE_SIZE = 32;
@@ -83,7 +85,8 @@ const edgeControlsEl = document.getElementById("edgeControls");
 const mapResizeEl = document.querySelector(".map-resize");
 const gameWrapEl = document.querySelector(".game-wrap");
 const githubClientMetaEl = document.querySelector('meta[name="github-client-id"]');
-const githubClientId = (githubClientMetaEl?.content || "").trim() || window.VIBE_GITHUB_CLIENT_ID || "";
+const githubClientId = resolveGitHubClientId(githubClientMetaEl?.content, window.VIBE_GITHUB_CLIENT_ID);
+const githubAuthUnavailableMessage = getGitHubAuthUnavailableMessage();
 
 const world = buildWorld();
 const player = {
@@ -506,7 +509,7 @@ function onGitHubAuthClick() {
   }
 
   if (!githubClientId) {
-    window.alert("GitHub authentication is not available right now.");
+    window.alert(githubAuthUnavailableMessage);
     return;
   }
 
@@ -753,7 +756,7 @@ function refreshGitHubAuthUi(errorMessage = "") {
     githubAuthBtn.textContent = "GitHub Auth Unavailable";
     githubAuthBtn.disabled = true;
     if (githubAuthStatusEl) {
-      githubAuthStatusEl.textContent = "GitHub authentication is not available.";
+      githubAuthStatusEl.textContent = githubAuthUnavailableMessage;
     }
     return;
   }
