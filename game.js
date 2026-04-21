@@ -28,6 +28,7 @@ import {
   createPkceChallenge,
   createPkceVerifier,
   formatGitHubCallbackDiagnostics,
+  formatGitHubTokenExchangeError,
   getGitHubAuthUnavailableMessage,
   isGitHubAuthSession,
   parseGitHubCallbackParams,
@@ -618,7 +619,8 @@ async function initializeGitHubAuth() {
     console.error("GitHub auth callback failed:", error);
     gameContext.githubAuth = null;
     sessionStorage.removeItem(GITHUB_AUTH_STORAGE_KEY);
-    failureMessage = `${callbackDiagnostics} GitHub auth failed while exchanging token.`;
+    const tokenExchangeError = formatGitHubTokenExchangeError(error);
+    failureMessage = `${callbackDiagnostics} GitHub auth failed while exchanging token: ${tokenExchangeError}.`;
     refreshGitHubAuthUi(failureMessage);
   } finally {
     clearPendingGitHubAuth();
@@ -703,26 +705,35 @@ async function exchangeGitHubCodeForToken({
   state,
   codeVerifier,
 }) {
+  const requestBody = new URLSearchParams({
+    client_id: githubClientId,
+    code,
+    redirect_uri: redirectUri,
+    state,
+    code_verifier: codeVerifier,
+  });
   const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: JSON.stringify({
-      client_id: githubClientId,
-      code,
-      redirect_uri: redirectUri,
-      state,
-      code_verifier: codeVerifier,
-    }),
+    body: requestBody.toString(),
   });
 
-  if (!response.ok) {
-    throw new Error(`GitHub token endpoint failed (${response.status})`);
+  const responseText = await response.text();
+  let data;
+  try {
+    data = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    data = {};
   }
 
-  const data = await response.json();
+  if (!response.ok) {
+    const reason = data.error_description || data.error || responseText || "unknown error";
+    throw new Error(`GitHub token endpoint failed (${response.status}): ${reason}`);
+  }
+
   if (data.error) {
     throw new Error(data.error_description || data.error);
   }

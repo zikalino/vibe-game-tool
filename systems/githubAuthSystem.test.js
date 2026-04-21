@@ -6,6 +6,7 @@ import {
   createPkceChallenge,
   createPkceVerifier,
   formatGitHubCallbackDiagnostics,
+  formatGitHubTokenExchangeError,
   getGitHubAuthUnavailableMessage,
   isGitHubAuthSession,
   parseGitHubCallbackParams,
@@ -75,6 +76,21 @@ test("resolveGitHubClientId returns first non-empty trimmed value", () => {
   assert.equal(resolveGitHubClientId("  meta-id  ", "window-id"), "meta-id");
   assert.equal(resolveGitHubClientId("   ", "  window-id  "), "window-id");
   assert.equal(resolveGitHubClientId("", ""), "");
+});
+
+test("formatGitHubTokenExchangeError returns readable diagnostics", () => {
+  assert.equal(
+    formatGitHubTokenExchangeError(new TypeError("Failed to fetch")),
+    "network request failed (possible CORS restriction or blocked token endpoint)",
+  );
+  assert.equal(
+    formatGitHubTokenExchangeError(new Error("bad_verification_code")),
+    "bad_verification_code",
+  );
+  assert.equal(
+    formatGitHubTokenExchangeError({}),
+    "unknown error",
+  );
 });
 
 test("isGitHubAuthSession checks required auth token shape", () => {
