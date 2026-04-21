@@ -5,6 +5,7 @@ import {
   buildGitHubAuthorizeUrl,
   createPkceChallenge,
   createPkceVerifier,
+  formatGitHubCallbackDiagnostics,
   getGitHubAuthUnavailableMessage,
   isGitHubAuthSession,
   parseGitHubCallbackParams,
@@ -53,6 +54,21 @@ test("parseGitHubCallbackParams reads callback values", () => {
     error: null,
     errorDescription: null,
   });
+});
+
+test("formatGitHubCallbackDiagnostics describes callback fields without exposing the code", () => {
+  assert.equal(
+    formatGitHubCallbackDiagnostics({ code: "secret-code", state: "state123", error: null }),
+    "GitHub callback received (code: yes, state: yes, error: none).",
+  );
+  assert.equal(
+    formatGitHubCallbackDiagnostics({ code: null, state: null, error: "access_denied" }),
+    "GitHub callback received (code: no, state: no, error: access_denied).",
+  );
+  assert.equal(
+    formatGitHubCallbackDiagnostics(null),
+    "GitHub callback not detected.",
+  );
 });
 
 test("resolveGitHubClientId returns first non-empty trimmed value", () => {

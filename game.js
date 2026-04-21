@@ -27,6 +27,7 @@ import {
   buildGitHubAuthorizeUrl,
   createPkceChallenge,
   createPkceVerifier,
+  formatGitHubCallbackDiagnostics,
   getGitHubAuthUnavailableMessage,
   isGitHubAuthSession,
   parseGitHubCallbackParams,
@@ -564,36 +565,40 @@ async function initializeGitHubAuth() {
     refreshGitHubAuthUi();
     return;
   }
+  const callbackDiagnostics = formatGitHubCallbackDiagnostics(callbackParams);
+  console.info(callbackDiagnostics);
 
   clearAuthCallbackQueryString();
 
   if (callbackParams.error) {
     clearPendingGitHubAuth();
-    refreshGitHubAuthUi(`GitHub auth failed: ${callbackParams.error}`);
+    const reason = callbackParams.errorDescription || callbackParams.error;
+    refreshGitHubAuthUi(`${callbackDiagnostics} GitHub auth failed: ${reason}`);
     return;
   }
 
   if (!callbackParams.code) {
     clearPendingGitHubAuth();
-    refreshGitHubAuthUi("GitHub auth failed: missing authorization code.");
+    refreshGitHubAuthUi(`${callbackDiagnostics} GitHub auth failed: missing authorization code.`);
     return;
   }
 
   const pending = readPendingGitHubAuth();
   if (!pending || pending.state !== callbackParams.state) {
     clearPendingGitHubAuth();
-    refreshGitHubAuthUi("GitHub auth failed: invalid login state.");
+    refreshGitHubAuthUi(`${callbackDiagnostics} GitHub auth failed: invalid login state.`);
     return;
   }
 
   if (!githubClientId) {
     clearPendingGitHubAuth();
-    refreshGitHubAuthUi("GitHub auth is not configured.");
+    refreshGitHubAuthUi(`${callbackDiagnostics} GitHub auth is not configured.`);
     return;
   }
 
+  let authStatusMessage = `${callbackDiagnostics} Completing GitHub login…`;
   isGitHubAuthLoading = true;
-  refreshGitHubAuthUi("Completing GitHub login…");
+  refreshGitHubAuthUi(authStatusMessage);
   try {
     const token = await exchangeGitHubCodeForToken({
       code: callbackParams.code,
@@ -613,11 +618,12 @@ async function initializeGitHubAuth() {
     console.error("GitHub auth callback failed:", error);
     gameContext.githubAuth = null;
     sessionStorage.removeItem(GITHUB_AUTH_STORAGE_KEY);
-    refreshGitHubAuthUi("GitHub auth failed while exchanging token.");
+    authStatusMessage = `${callbackDiagnostics} GitHub auth failed while exchanging token.`;
+    refreshGitHubAuthUi(authStatusMessage);
   } finally {
     clearPendingGitHubAuth();
     isGitHubAuthLoading = false;
-    refreshGitHubAuthUi();
+    refreshGitHubAuthUi(authStatusMessage);
   }
 }
 
