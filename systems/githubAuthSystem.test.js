@@ -89,7 +89,13 @@ test("resolveGitHubTokenExchangeUrl returns first non-empty trimmed value", () =
 test("formatGitHubTokenExchangeError returns readable diagnostics", () => {
   assert.equal(
     formatGitHubTokenExchangeError(new TypeError("Failed to fetch")),
-    "network request failed (possible CORS restriction or blocked token endpoint)",
+    "network request failed while POSTing the callback code to the token endpoint; this step exchanges the GitHub callback code for an access token (possible CORS restriction or blocked token endpoint)",
+  );
+  assert.equal(
+    formatGitHubTokenExchangeError(Object.assign(new TypeError("Failed to fetch"), {
+      tokenExchangeUrl: "https://github.com/login/oauth/access_token",
+    })),
+    "network request failed while POSTing the callback code to https://github.com/login/oauth/access_token; this step exchanges the GitHub callback code for an access token (possible CORS restriction or blocked token endpoint)",
   );
   assert.equal(
     formatGitHubTokenExchangeError(new Error("bad_verification_code")),

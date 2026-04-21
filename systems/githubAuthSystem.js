@@ -84,7 +84,11 @@ export function formatGitHubTokenExchangeError(error) {
     return "unknown error";
   }
   if (message === "Failed to fetch") {
-    return "network request failed (possible CORS restriction or blocked token endpoint)";
+    const tokenExchangeUrl = typeof error?.tokenExchangeUrl === "string" ? error.tokenExchangeUrl : "";
+    const endpointDetails = tokenExchangeUrl
+      ? ` while POSTing the callback code to ${tokenExchangeUrl}`
+      : " while POSTing the callback code to the token endpoint";
+    return `network request failed${endpointDetails}; this step exchanges the GitHub callback code for an access token (possible CORS restriction or blocked token endpoint)`;
   }
   return message;
 }

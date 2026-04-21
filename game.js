@@ -766,6 +766,9 @@ async function exchangeGitHubCodeForToken({
         scope: data.scope || "",
       };
     } catch (error) {
+      if (error && typeof error === "object" && typeof error.tokenExchangeUrl !== "string") {
+        error.tokenExchangeUrl = tokenExchangeUrl;
+      }
       lastError = error;
       if (tokenExchangeUrl === GITHUB_OAUTH_TOKEN_ENDPOINT) {
         break;
