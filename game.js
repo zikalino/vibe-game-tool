@@ -50,7 +50,8 @@ const MONSTER_STEP_FRAMES_1X = 3;
 const DEFAULT_TRANSITION_FRAMES = 1;
 const CAMERA_EDGE_MARGIN_TILES = 3;
 const CAMERA_SMOOTHING = 0.2;
-const ALLOWED_TICK_INTERVAL_MULTIPLIERS = new Set([1, 2]);
+const DEFAULT_TICK_INTERVAL_MULTIPLIER = 2;
+const ALLOWED_TICK_SPEED_MULTIPLIERS = new Set([0.5, 1, 2, 3, 4]);
 const MOVE_KEYS = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
 const ACTION_KEYS = ["f", " "];
 const OBJECT_TRANSITION_FRAMES = {
@@ -111,7 +112,7 @@ let appMode = "edit";
 let savedWorld = null;
 let cameraScrollLeft = 0;
 let cameraScrollTop = 0;
-let tickIntervalMultiplier = 1;
+let tickIntervalMultiplier = DEFAULT_TICK_INTERVAL_MULTIPLIER;
 let isGitHubAuthLoading = false;
 
 const gameContext = {
@@ -252,13 +253,13 @@ function onToolClick(event) {
 }
 
 function onTickIntervalChange() {
-  const nextMultiplier = Number(tickIntervalSelectEl.value);
-  if (!ALLOWED_TICK_INTERVAL_MULTIPLIERS.has(nextMultiplier)) {
-    tickIntervalMultiplier = 1;
+  const nextSpeedMultiplier = Number(tickIntervalSelectEl.value);
+  if (!ALLOWED_TICK_SPEED_MULTIPLIERS.has(nextSpeedMultiplier)) {
+    tickIntervalMultiplier = DEFAULT_TICK_INTERVAL_MULTIPLIER;
     tickIntervalSelectEl.value = "1";
     return;
   }
-  tickIntervalMultiplier = nextMultiplier;
+  tickIntervalMultiplier = DEFAULT_TICK_INTERVAL_MULTIPLIER / nextSpeedMultiplier;
 }
 
 function setSelectedTool(tool) {
