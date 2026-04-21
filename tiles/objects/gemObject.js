@@ -1,11 +1,13 @@
 import { BaseObject } from "../baseObject.js";
 
 const SHATTER_FALL_DISTANCE = 3;
+const DIAMOND_IMAGE_URL = "https://github.com/user-attachments/assets/713d53dd-c3f8-4ce0-89c6-4eba629f3372";
 
 export class GemObject extends BaseObject {
-  constructor(tileType) {
+  constructor(tileType, diamondImage = createDiamondImage()) {
     super(tileType.DIAMOND);
     this.tileType = tileType;
+    this.diamondImage = diamondImage;
   }
 
   create(fallDistance = 0) {
@@ -15,6 +17,12 @@ export class GemObject extends BaseObject {
   draw({ ctx, px, py, tileSize }) {
     ctx.fillStyle = "#4a3c13";
     ctx.fillRect(px, py, tileSize, tileSize);
+
+    if (isImageReady(this.diamondImage)) {
+      ctx.drawImage(this.diamondImage, px, py, tileSize, tileSize);
+      return;
+    }
+
     ctx.fillStyle = "#66e8ff";
     ctx.beginPath();
     ctx.moveTo(px + 16, py + 4);
@@ -114,4 +122,18 @@ function moveGem({ fromX, fromY, toX, toY, moved, world, makeEmpty, makeDiamond,
   if (player.x === toX && player.y === toY) {
     setGameState("lost", "You were crushed by a gem. Press R to retry.");
   }
+}
+
+function createDiamondImage() {
+  if (typeof Image !== "function") {
+    return null;
+  }
+
+  const image = new Image();
+  image.src = DIAMOND_IMAGE_URL;
+  return image;
+}
+
+function isImageReady(image) {
+  return Boolean(image && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0);
 }
