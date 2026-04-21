@@ -347,6 +347,9 @@ function onExpandEdgeClick(event) {
   const addBottom = edge === "bottom" ? amount : 0;
   const nextCols = clampTileCount(COLS + addLeft + addRight);
   const nextRows = clampTileCount(ROWS + addTop + addBottom);
+  if (nextCols === COLS && nextRows === ROWS) {
+    return;
+  }
   const extraCols = nextCols - COLS;
   const extraRows = nextRows - ROWS;
   const offsetX = Math.min(addLeft, extraCols);

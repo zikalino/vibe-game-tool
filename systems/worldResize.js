@@ -14,8 +14,10 @@ export function resizeWorldGridWithOffset(world, nextRows, nextCols, offsetY, of
     () => Array.from({ length: nextCols }, () => makeEmpty()),
   );
 
-  const rowsToCopy = Math.min(previousRows, Math.max(0, nextRows - offsetY));
-  const colsToCopy = Math.min(previousCols, Math.max(0, nextCols - offsetX));
+  const availableRows = Math.max(0, nextRows - offsetY);
+  const availableCols = Math.max(0, nextCols - offsetX);
+  const rowsToCopy = Math.min(previousRows, availableRows);
+  const colsToCopy = Math.min(previousCols, availableCols);
 
   for (let y = 0; y < rowsToCopy; y += 1) {
     for (let x = 0; x < colsToCopy; x += 1) {
