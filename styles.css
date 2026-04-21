@@ -210,7 +210,6 @@ p {
   position: absolute;
   inset: 0;
   z-index: 5;
-  pointer-events: none;
 }
 
 .edge-controls-row {
@@ -289,6 +288,7 @@ body.play-mode .edge-controls {
 }
 
 .map-resize {
+  position: relative;
   width: var(--canvas-width);
   height: var(--canvas-height);
   min-width: 320px;

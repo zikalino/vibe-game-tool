@@ -92,7 +92,10 @@ playAgainBtn.addEventListener("click", resetGame);
 playBtn.addEventListener("click", startPlay);
 editBtn.addEventListener("click", startEdit);
 exitPlayBtn.addEventListener("click", startEdit);
-edgeControlsEl.addEventListener("click", onExpandEdgeClick);
+const edgeButtons = edgeControlsEl.querySelectorAll("button[data-expand-edge][data-expand-amount]");
+for (const button of edgeButtons) {
+  button.addEventListener("click", onExpandEdgeClick);
+}
 new ResizeObserver(onMapResize).observe(mapResizeEl);
 
 updateHud();
@@ -413,6 +416,7 @@ function startPlay() {
   playBtn.classList.add("hidden");
   editBtn.classList.remove("hidden");
   exitPlayBtn.classList.remove("hidden");
+  edgeControlsEl.classList.add("hidden");
   updateHud();
 }
 
@@ -439,6 +443,7 @@ function startEdit() {
   playBtn.classList.remove("hidden");
   editBtn.classList.add("hidden");
   exitPlayBtn.classList.add("hidden");
+  edgeControlsEl.classList.remove("hidden");
   updateHud();
 }
 
