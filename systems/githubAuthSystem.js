@@ -67,6 +67,16 @@ export function parseGitHubCallbackParams(search) {
   };
 }
 
+export function formatGitHubCallbackDiagnostics(callbackParams) {
+  if (!callbackParams) {
+    return "GitHub callback not detected.";
+  }
+  const hasCode = typeof callbackParams.code === "string" && callbackParams.code.length > 0;
+  const hasState = typeof callbackParams.state === "string" && callbackParams.state.length > 0;
+  const error = callbackParams.error || "none";
+  return `GitHub callback received (code: ${hasCode ? "yes" : "no"}, state: ${hasState ? "yes" : "no"}, error: ${error}).`;
+}
+
 export function resolveGitHubClientId(metaClientId, windowClientId) {
   return normalizeClientId(metaClientId) || normalizeClientId(windowClientId);
 }
