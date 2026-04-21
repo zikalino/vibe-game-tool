@@ -35,8 +35,8 @@ const DIAMOND_GOAL = 4;
 const MAX_ROCK_CHARGE = 8;
 const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
-const BASE_ROCK_STEP_FRAMES = 2;
-const BASE_MONSTER_STEP_FRAMES = 3;
+const ROCK_STEP_FRAMES_1X = 2;
+const MONSTER_STEP_FRAMES_1X = 3;
 const DEFAULT_TRANSITION_FRAMES = 1;
 const CAMERA_EDGE_MARGIN_TILES = 3;
 const CAMERA_SMOOTHING = 0.2;
@@ -44,11 +44,11 @@ const ALLOWED_TICK_INTERVAL_MULTIPLIERS = new Set([1, 2]);
 const MOVE_KEYS = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
 const ACTION_KEYS = ["f", " "];
 const OBJECT_TRANSITION_FRAMES = {
-  [TileType.ROCK]: BASE_ROCK_STEP_FRAMES,
-  [TileType.DIAMOND]: BASE_ROCK_STEP_FRAMES,
-  [TileType.MONSTER_H]: BASE_MONSTER_STEP_FRAMES,
-  [TileType.MONSTER_V]: BASE_MONSTER_STEP_FRAMES,
-  [TileType.MONSTER_WANDER]: BASE_MONSTER_STEP_FRAMES,
+  [TileType.ROCK]: ROCK_STEP_FRAMES_1X,
+  [TileType.DIAMOND]: ROCK_STEP_FRAMES_1X,
+  [TileType.MONSTER_H]: MONSTER_STEP_FRAMES_1X,
+  [TileType.MONSTER_V]: MONSTER_STEP_FRAMES_1X,
+  [TileType.MONSTER_WANDER]: MONSTER_STEP_FRAMES_1X,
 };
 
 const waterConfig = {
@@ -230,7 +230,7 @@ function onToolClick(event) {
 
 function onTickIntervalChange() {
   const nextMultiplier = Number(tickIntervalSelectEl.value);
-  if (!Number.isFinite(nextMultiplier) || !ALLOWED_TICK_INTERVAL_MULTIPLIERS.has(nextMultiplier)) {
+  if (!ALLOWED_TICK_INTERVAL_MULTIPLIERS.has(nextMultiplier)) {
     tickIntervalMultiplier = 1;
     tickIntervalSelectEl.value = "1";
     return;
@@ -753,11 +753,11 @@ function getTransitionFrames(type) {
 }
 
 function getRockStepFrames() {
-  return Math.max(1, Math.round(BASE_ROCK_STEP_FRAMES * tickIntervalMultiplier));
+  return Math.max(1, Math.round(ROCK_STEP_FRAMES_1X * tickIntervalMultiplier));
 }
 
 function getMonsterStepFrames() {
-  return Math.max(1, Math.round(BASE_MONSTER_STEP_FRAMES * tickIntervalMultiplier));
+  return Math.max(1, Math.round(MONSTER_STEP_FRAMES_1X * tickIntervalMultiplier));
 }
 
 function getTileTransitionOffset(tile) {
