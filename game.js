@@ -15,7 +15,7 @@ import {
 import { stepMonsters } from "./systems/monsterSystem.js";
 import { stepRocks } from "./systems/rockSystem.js";
 import { stepWater } from "./systems/waterSystem.js";
-import { clampTileCount, resizeWorldGrid } from "./systems/worldResize.js";
+import { clampTileCount, resizeWorldGridWithOffset } from "./systems/worldResize.js";
 import { calculateCameraTarget, stepSmoothScroll } from "./systems/cameraSystem.js";
 
 const TILE_SIZE = 32;
@@ -55,6 +55,8 @@ const winOverlayEl = document.getElementById("winOverlay");
 const playAgainBtn = document.getElementById("playAgainBtn");
 const playBtn = document.getElementById("playBtn");
 const editBtn = document.getElementById("editBtn");
+const exitPlayBtn = document.getElementById("exitPlayBtn");
+const edgeControlsEl = document.getElementById("edgeControls");
 const mapResizeEl = document.querySelector(".map-resize");
 const gameWrapEl = document.querySelector(".game-wrap");
 
@@ -89,6 +91,8 @@ toolsEl.addEventListener("click", onToolClick);
 playAgainBtn.addEventListener("click", resetGame);
 playBtn.addEventListener("click", startPlay);
 editBtn.addEventListener("click", startEdit);
+exitPlayBtn.addEventListener("click", startEdit);
+edgeControlsEl.addEventListener("click", onExpandEdgeClick);
 new ResizeObserver(onMapResize).observe(mapResizeEl);
 
 updateHud();
@@ -291,18 +295,22 @@ function onMapResize(entries) {
 }
 
 function resizeMap(nextCols, nextRows) {
+  resizeMapWithOffset(nextCols, nextRows, 0, 0);
+}
+
+function resizeMapWithOffset(nextCols, nextRows, offsetX, offsetY) {
   if (nextCols === COLS && nextRows === ROWS) {
     return;
   }
 
-  const resizedWorld = resizeWorldGrid(world, nextRows, nextCols, makeEmpty);
+  const resizedWorld = resizeWorldGridWithOffset(world, nextRows, nextCols, offsetY, offsetX, makeEmpty);
   world.length = 0;
   for (const row of resizedWorld) {
     world.push(row);
   }
 
   if (savedWorld !== null) {
-    savedWorld = resizeWorldGrid(savedWorld, nextRows, nextCols, makeEmpty);
+    savedWorld = resizeWorldGridWithOffset(savedWorld, nextRows, nextCols, offsetY, offsetX, makeEmpty);
   }
 
   COLS = nextCols;
@@ -311,10 +319,42 @@ function resizeMap(nextCols, nextRows) {
   canvas.height = ROWS * TILE_SIZE;
   mapResizeEl.style.width = `${canvas.width}px`;
   mapResizeEl.style.height = `${canvas.height}px`;
-  player.x = Math.min(player.x, COLS - 1);
-  player.y = Math.min(player.y, ROWS - 1);
-  spawnPoint.x = Math.min(spawnPoint.x, COLS - 1);
-  spawnPoint.y = Math.min(spawnPoint.y, ROWS - 1);
+  player.x = Math.min(player.x + offsetX, COLS - 1);
+  player.y = Math.min(player.y + offsetY, ROWS - 1);
+  spawnPoint.x = Math.min(spawnPoint.x + offsetX, COLS - 1);
+  spawnPoint.y = Math.min(spawnPoint.y + offsetY, ROWS - 1);
+}
+
+function onExpandEdgeClick(event) {
+  if (appMode !== "edit") {
+    return;
+  }
+
+  const button = event.target.closest("button[data-expand-edge][data-expand-amount]");
+  if (!button) {
+    return;
+  }
+
+  const edge = button.dataset.expandEdge;
+  const amount = Number(button.dataset.expandAmount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return;
+  }
+
+  const addLeft = edge === "left" ? amount : 0;
+  const addRight = edge === "right" ? amount : 0;
+  const addTop = edge === "top" ? amount : 0;
+  const addBottom = edge === "bottom" ? amount : 0;
+  const nextCols = clampTileCount(COLS + addLeft + addRight);
+  const nextRows = clampTileCount(ROWS + addTop + addBottom);
+  if (nextCols === COLS && nextRows === ROWS) {
+    return;
+  }
+  const extraCols = nextCols - COLS;
+  const extraRows = nextRows - ROWS;
+  const offsetX = Math.min(addLeft, extraCols);
+  const offsetY = Math.min(addTop, extraRows);
+  resizeMapWithOffset(nextCols, nextRows, offsetX, offsetY);
 }
 
 function pourWaterAt(x, y, amount) {
@@ -372,6 +412,7 @@ function startPlay() {
   cameraScrollTop = gameWrapEl.scrollTop;
   playBtn.classList.add("hidden");
   editBtn.classList.remove("hidden");
+  exitPlayBtn.classList.remove("hidden");
   updateHud();
 }
 
@@ -397,6 +438,7 @@ function startEdit() {
   cameraScrollTop = 0;
   playBtn.classList.remove("hidden");
   editBtn.classList.add("hidden");
+  exitPlayBtn.classList.add("hidden");
   updateHud();
 }
 

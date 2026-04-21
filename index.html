@@ -26,7 +26,8 @@
         Mouse build mode: left click places selected tile, right click erases.
       </p>
       <p>
-        Resize the tile grid by dragging its bottom-right corner; this changes map rows/columns (up to 1000x1000 tiles).
+        Resize the tile grid by dragging its bottom-right corner or using the edge +1/+5/+10 controls in edit mode.
+        Maximum size is 1000x1000 tiles.
       </p>
       <div class="mode-controls">
         <button id="playBtn" type="button" class="play-btn">&#9654; Play</button>
@@ -60,6 +61,29 @@
       </div>
     </section>
     <section class="game-wrap">
+      <div id="edgeControls" class="edge-controls" aria-label="Map expand controls">
+        <div class="edge-controls-row edge-controls-top">
+          <button type="button" data-expand-edge="top" data-expand-amount="1">+1 row</button>
+          <button type="button" data-expand-edge="top" data-expand-amount="5">+5 rows</button>
+          <button type="button" data-expand-edge="top" data-expand-amount="10">+10 rows</button>
+        </div>
+        <div class="edge-controls-row edge-controls-right">
+          <button type="button" data-expand-edge="right" data-expand-amount="1">+1 col</button>
+          <button type="button" data-expand-edge="right" data-expand-amount="5">+5 cols</button>
+          <button type="button" data-expand-edge="right" data-expand-amount="10">+10 cols</button>
+        </div>
+        <div class="edge-controls-row edge-controls-bottom">
+          <button type="button" data-expand-edge="bottom" data-expand-amount="1">+1 row</button>
+          <button type="button" data-expand-edge="bottom" data-expand-amount="5">+5 rows</button>
+          <button type="button" data-expand-edge="bottom" data-expand-amount="10">+10 rows</button>
+        </div>
+        <div class="edge-controls-row edge-controls-left">
+          <button type="button" data-expand-edge="left" data-expand-amount="1">+1 col</button>
+          <button type="button" data-expand-edge="left" data-expand-amount="5">+5 cols</button>
+          <button type="button" data-expand-edge="left" data-expand-amount="10">+10 cols</button>
+        </div>
+      </div>
+      <button id="exitPlayBtn" class="exit-play-btn hidden" type="button" aria-label="Exit play mode">Exit play</button>
       <div class="map-resize">
         <canvas id="game" width="768" height="512" aria-label="Tile game canvas"></canvas>
       </div>
