@@ -596,7 +596,7 @@ async function initializeGitHubAuth() {
     return;
   }
 
-  let callbackFailureMessage = "";
+  let failureMessageToPersist = "";
   isGitHubAuthLoading = true;
   refreshGitHubAuthUi(`${callbackDiagnostics} Completing GitHub login…`);
   try {
@@ -618,12 +618,12 @@ async function initializeGitHubAuth() {
     console.error("GitHub auth callback failed:", error);
     gameContext.githubAuth = null;
     sessionStorage.removeItem(GITHUB_AUTH_STORAGE_KEY);
-    callbackFailureMessage = `${callbackDiagnostics} GitHub auth failed while exchanging token.`;
-    refreshGitHubAuthUi(callbackFailureMessage);
+    failureMessageToPersist = `${callbackDiagnostics} GitHub auth failed while exchanging token.`;
+    refreshGitHubAuthUi(failureMessageToPersist);
   } finally {
     clearPendingGitHubAuth();
     isGitHubAuthLoading = false;
-    refreshGitHubAuthUi(callbackFailureMessage);
+    refreshGitHubAuthUi(failureMessageToPersist);
   }
 }
 
