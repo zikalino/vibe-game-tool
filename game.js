@@ -210,7 +210,7 @@ function setSelectedTool(tool) {
 }
 
 function onMouseDown(event) {
-  if (appMode !== "edit") {
+  if (appMode === "play") {
     return;
   }
 
@@ -251,7 +251,7 @@ function onMouseDown(event) {
 }
 
 function onMouseMove(event) {
-  if (appMode !== "edit") {
+  if (appMode === "play") {
     return;
   }
 
