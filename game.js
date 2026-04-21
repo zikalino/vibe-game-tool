@@ -483,7 +483,7 @@ function startEdit() {
 }
 
 function onGitHubAuthClick() {
-  window.alert("GitHub authentication is not implemented yet.");
+  window.alert("GitHub authentication is coming soon. Please check back later.");
 }
 
 function cloneWorld(src) {
