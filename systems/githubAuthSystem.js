@@ -1,5 +1,6 @@
 const PKCE_VERIFIER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
 const DEFAULT_SCOPE = "read:user";
+const GITHUB_TOKEN_RESPONSE_FIELDS = ["access_token", "token_type", "scope", "error", "error_description"];
 
 export const GITHUB_AUTH_STORAGE_KEY = "vibeGame.githubAuth";
 export const GITHUB_AUTH_PENDING_KEY = "vibeGame.githubAuth.pending";
@@ -96,21 +97,15 @@ export function parseGitHubTokenEndpointResponse(responseText, options = {}) {
     return JSON.parse(responseText);
   } catch {
     const params = new URLSearchParams(responseText);
-    const hasKnownTokenField = (
-      params.has("access_token")
-      || params.has("token_type")
-      || params.has("scope")
-      || params.has("error")
-      || params.has("error_description")
-    );
+    const hasKnownTokenField = GITHUB_TOKEN_RESPONSE_FIELDS.some((key) => params.has(key));
     if (hasKnownTokenField) {
-      return {
-        access_token: params.get("access_token"),
-        token_type: params.get("token_type"),
-        scope: params.get("scope"),
-        error: params.get("error"),
-        error_description: params.get("error_description"),
-      };
+      const data = {};
+      for (const key of GITHUB_TOKEN_RESPONSE_FIELDS) {
+        if (params.has(key)) {
+          data[key] = params.get(key);
+        }
+      }
+      return data;
     }
     if (options.warnOnParseError) {
       console.warn("GitHub token endpoint returned non-JSON response.");

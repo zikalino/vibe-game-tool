@@ -103,14 +103,12 @@ test("parseGitHubTokenEndpointResponse parses JSON token responses", () => {
   });
 });
 
-test("parseGitHubTokenEndpointResponse parses urlencoded token responses", () => {
+test("parseGitHubTokenEndpointResponse parses URL-encoded token responses", () => {
   const parsed = parseGitHubTokenEndpointResponse("access_token=abc&scope=read%3Auser&token_type=bearer");
   assert.deepEqual(parsed, {
     access_token: "abc",
     token_type: "bearer",
     scope: "read:user",
-    error: null,
-    error_description: null,
   });
 });
 
