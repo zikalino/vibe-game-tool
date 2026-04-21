@@ -34,6 +34,8 @@ const ROCK_STEP_FRAMES = 4;
 const MONSTER_STEP_FRAMES = 6;
 const CAMERA_EDGE_MARGIN_TILES = 3;
 const CAMERA_SMOOTHING = 0.2;
+const MOVE_KEYS = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
+const ACTION_KEYS = ["f", " ", "spacebar"];
 
 const waterConfig = {
   min: WATER_MIN,
@@ -418,8 +420,8 @@ function updateHud() {
 
 function onKeyDown(event) {
   const key = event.key.toLowerCase();
-  const isMoveKey = key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright" || key === "w" || key === "a" || key === "s" || key === "d";
-  const isActionKey = key === "f" || key === " ";
+  const isMoveKey = MOVE_KEYS.includes(key);
+  const isActionKey = ACTION_KEYS.includes(key);
 
   if (appMode === "play" && (isMoveKey || isActionKey)) {
     event.preventDefault();
@@ -462,7 +464,7 @@ function onKeyDown(event) {
     tryMove(-1, 0);
   } else if (key === "arrowright" || key === "d") {
     tryMove(1, 0);
-  } else if (key === " ") {
+  } else if (key === " " || key === "spacebar") {
     breakSoil();
     event.preventDefault();
   }
