@@ -229,7 +229,7 @@ function onToolClick(event) {
 
 function onTickIntervalChange() {
   const nextMultiplier = Number(tickIntervalSelectEl.value);
-  if (!Number.isFinite(nextMultiplier) || nextMultiplier < 1) {
+  if (!Number.isFinite(nextMultiplier) || (nextMultiplier !== 1 && nextMultiplier !== 2)) {
     tickIntervalMultiplier = 1;
     tickIntervalSelectEl.value = "1";
     return;
