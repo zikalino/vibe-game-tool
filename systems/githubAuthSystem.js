@@ -10,9 +10,14 @@ function base64UrlEncode(bytes) {
 }
 
 function randomIndex(maxExclusive) {
+  const unbiasedLimit = Math.floor(256 / maxExclusive) * maxExclusive;
   const randomBytes = new Uint8Array(1);
-  crypto.getRandomValues(randomBytes);
-  return randomBytes[0] % maxExclusive;
+  while (true) {
+    crypto.getRandomValues(randomBytes);
+    if (randomBytes[0] < unbiasedLimit) {
+      return randomBytes[0] % maxExclusive;
+    }
+  }
 }
 
 export function createPkceVerifier(length = 96) {
@@ -57,4 +62,3 @@ export function parseGitHubCallbackParams(search) {
     errorDescription: params.get("error_description"),
   };
 }
-

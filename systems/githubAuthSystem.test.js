@@ -51,4 +51,3 @@ test("parseGitHubCallbackParams reads callback values", () => {
     errorDescription: null,
   });
 });
-
