@@ -132,6 +132,26 @@ p {
   gap: 8px;
 }
 
+.tick-controls {
+  margin: 8px 0 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.tick-controls label {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.tick-controls select {
+  border: 1px solid #7f8ca1;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  background: #fff;
+  color: #23344a;
+}
+
 .play-btn,
 .edit-btn {
   flex: 1;

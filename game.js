@@ -35,19 +35,19 @@ const DIAMOND_GOAL = 4;
 const MAX_ROCK_CHARGE = 8;
 const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
-const ROCK_STEP_FRAMES = 4;
-const MONSTER_STEP_FRAMES = 6;
+const BASE_ROCK_STEP_FRAMES = 2;
+const BASE_MONSTER_STEP_FRAMES = 3;
 const DEFAULT_TRANSITION_FRAMES = 1;
 const CAMERA_EDGE_MARGIN_TILES = 3;
 const CAMERA_SMOOTHING = 0.2;
 const MOVE_KEYS = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
 const ACTION_KEYS = ["f", " "];
 const OBJECT_TRANSITION_FRAMES = {
-  [TileType.ROCK]: ROCK_STEP_FRAMES,
-  [TileType.DIAMOND]: ROCK_STEP_FRAMES,
-  [TileType.MONSTER_H]: MONSTER_STEP_FRAMES,
-  [TileType.MONSTER_V]: MONSTER_STEP_FRAMES,
-  [TileType.MONSTER_WANDER]: MONSTER_STEP_FRAMES,
+  [TileType.ROCK]: BASE_ROCK_STEP_FRAMES,
+  [TileType.DIAMOND]: BASE_ROCK_STEP_FRAMES,
+  [TileType.MONSTER_H]: BASE_MONSTER_STEP_FRAMES,
+  [TileType.MONSTER_V]: BASE_MONSTER_STEP_FRAMES,
+  [TileType.MONSTER_WANDER]: BASE_MONSTER_STEP_FRAMES,
 };
 
 const waterConfig = {
@@ -68,6 +68,7 @@ const winOverlayEl = document.getElementById("winOverlay");
 const playAgainBtn = document.getElementById("playAgainBtn");
 const playBtn = document.getElementById("playBtn");
 const editBtn = document.getElementById("editBtn");
+const tickIntervalSelectEl = document.getElementById("tickIntervalSelect");
 const exitPlayBtn = document.getElementById("exitPlayBtn");
 const edgeControlsEl = document.getElementById("edgeControls");
 const mapResizeEl = document.querySelector(".map-resize");
@@ -94,6 +95,7 @@ let appMode = "edit";
 let savedWorld = null;
 let cameraScrollLeft = 0;
 let cameraScrollTop = 0;
+let tickIntervalMultiplier = 1;
 
 window.addEventListener("keydown", onKeyDown);
 canvas.addEventListener("mousedown", onMouseDown);
@@ -105,6 +107,7 @@ toolsEl.addEventListener("click", onToolClick);
 playAgainBtn.addEventListener("click", resetGame);
 playBtn.addEventListener("click", startPlay);
 editBtn.addEventListener("click", startEdit);
+tickIntervalSelectEl.addEventListener("change", onTickIntervalChange);
 exitPlayBtn.addEventListener("click", startEdit);
 edgeControlsEl.addEventListener("click", onExpandEdgeClick);
 new ResizeObserver(onMapResize).observe(mapResizeEl);
@@ -119,8 +122,10 @@ function loop() {
     rockFrameCounter += 1;
     monsterFrameCounter += 1;
 
-    const shouldTickRocks = rockFrameCounter >= ROCK_STEP_FRAMES;
-    const shouldTickMonsters = monsterFrameCounter >= MONSTER_STEP_FRAMES;
+    const rockStepFrames = getRockStepFrames();
+    const monsterStepFrames = getMonsterStepFrames();
+    const shouldTickRocks = rockFrameCounter >= rockStepFrames;
+    const shouldTickMonsters = monsterFrameCounter >= monsterStepFrames;
 
     if (shouldTickRocks || shouldTickMonsters) {
       rockRollBias = tickWorldObjects({
@@ -220,6 +225,16 @@ function onToolClick(event) {
   }
 
   setSelectedTool(button.dataset.tool);
+}
+
+function onTickIntervalChange() {
+  const nextMultiplier = Number(tickIntervalSelectEl.value);
+  if (!Number.isFinite(nextMultiplier) || nextMultiplier < 1) {
+    tickIntervalMultiplier = 1;
+    tickIntervalSelectEl.value = "1";
+    return;
+  }
+  tickIntervalMultiplier = nextMultiplier;
 }
 
 function setSelectedTool(tool) {
@@ -732,7 +747,16 @@ function stepObjectTransitions() {
 }
 
 function getTransitionFrames(type) {
-  return OBJECT_TRANSITION_FRAMES[type] || DEFAULT_TRANSITION_FRAMES;
+  const baseFrames = OBJECT_TRANSITION_FRAMES[type] || DEFAULT_TRANSITION_FRAMES;
+  return Math.max(1, Math.round(baseFrames * tickIntervalMultiplier));
+}
+
+function getRockStepFrames() {
+  return Math.max(1, Math.round(BASE_ROCK_STEP_FRAMES * tickIntervalMultiplier));
+}
+
+function getMonsterStepFrames() {
+  return Math.max(1, Math.round(BASE_MONSTER_STEP_FRAMES * tickIntervalMultiplier));
 }
 
 function getTileTransitionOffset(tile) {
