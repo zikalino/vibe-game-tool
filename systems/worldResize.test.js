@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { makeEmpty, makeStone, TileType } from "../tiles/tileDefs.js";
-import { clampTileCount, resizeWorldGrid } from "./worldResize.js";
+import { clampTileCount, resizeWorldGrid, resizeWorldGridWithOffset } from "./worldResize.js";
 
 test("resizeWorldGrid keeps overlapping tiles and fills new space with empty tiles", () => {
   const world = Array.from({ length: 2 }, () => Array.from({ length: 2 }, () => makeEmpty()));
@@ -25,6 +25,16 @@ test("resizeWorldGrid can build a 1000x1000 tile map", () => {
   assert.equal(resized[0].length, 1000);
   assert.equal(resized[0][0].type, TileType.STONE);
   assert.equal(resized[999][999].type, TileType.EMPTY);
+});
+
+test("resizeWorldGridWithOffset inserts new space on top and left", () => {
+  const world = Array.from({ length: 2 }, () => Array.from({ length: 2 }, () => makeEmpty()));
+  world[0][0] = makeStone();
+
+  const resized = resizeWorldGridWithOffset(world, 3, 4, 1, 2, makeEmpty);
+
+  assert.equal(resized[1][2].type, TileType.STONE);
+  assert.equal(resized[0][0].type, TileType.EMPTY);
 });
 
 test("clampTileCount clamps values between 1 and 1000", () => {

@@ -192,6 +192,7 @@ p {
 }
 
 .game-wrap {
+  position: relative;
   border: 2px solid #264462;
   border-radius: 14px;
   overflow: auto;
@@ -205,6 +206,71 @@ p {
   background: #dbe8f7;
 }
 
+.edge-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.edge-controls-row {
+  position: absolute;
+  display: flex;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+.edge-controls-row button,
+.exit-play-btn {
+  border: 1px solid #1f4062;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(31, 64, 98, 0.88);
+  cursor: pointer;
+}
+
+.edge-controls-row button:hover,
+.exit-play-btn:hover {
+  background: rgba(20, 45, 68, 0.95);
+}
+
+.edge-controls-top {
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.edge-controls-bottom {
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.edge-controls-left {
+  top: 50%;
+  left: 6px;
+  transform: translateY(-50%);
+  flex-direction: column;
+}
+
+.edge-controls-right {
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  flex-direction: column;
+}
+
+.exit-play-btn {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 15;
+}
+
 body.play-mode .panel {
   display: none;
 }
@@ -216,6 +282,10 @@ body.play-mode .layout {
 
 body.play-mode .game-wrap {
   overflow: hidden;
+}
+
+body.play-mode .edge-controls {
+  display: none;
 }
 
 .map-resize {
