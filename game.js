@@ -419,7 +419,7 @@ function updateHud() {
 function onKeyDown(event) {
   const key = event.key.toLowerCase();
   const isMoveKey = key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright" || key === "w" || key === "a" || key === "s" || key === "d";
-  const isActionKey = key === "f" || key === " " || key === "spacebar";
+  const isActionKey = key === "f" || key === " ";
 
   if (appMode === "play" && (isMoveKey || isActionKey)) {
     event.preventDefault();
@@ -462,7 +462,7 @@ function onKeyDown(event) {
     tryMove(-1, 0);
   } else if (key === "arrowright" || key === "d") {
     tryMove(1, 0);
-  } else if (key === " " || key === "spacebar") {
+  } else if (key === " ") {
     breakSoil();
     event.preventDefault();
   }
