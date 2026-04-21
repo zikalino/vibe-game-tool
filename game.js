@@ -40,6 +40,7 @@ const BASE_MONSTER_STEP_FRAMES = 3;
 const DEFAULT_TRANSITION_FRAMES = 1;
 const CAMERA_EDGE_MARGIN_TILES = 3;
 const CAMERA_SMOOTHING = 0.2;
+const ALLOWED_TICK_INTERVAL_MULTIPLIERS = new Set([1, 2]);
 const MOVE_KEYS = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
 const ACTION_KEYS = ["f", " "];
 const OBJECT_TRANSITION_FRAMES = {
@@ -229,7 +230,7 @@ function onToolClick(event) {
 
 function onTickIntervalChange() {
   const nextMultiplier = Number(tickIntervalSelectEl.value);
-  if (!Number.isFinite(nextMultiplier) || (nextMultiplier !== 1 && nextMultiplier !== 2)) {
+  if (!Number.isFinite(nextMultiplier) || !ALLOWED_TICK_INTERVAL_MULTIPLIERS.has(nextMultiplier)) {
     tickIntervalMultiplier = 1;
     tickIntervalSelectEl.value = "1";
     return;
