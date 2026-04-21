@@ -34,8 +34,8 @@ test("calculateCameraTarget moves camera when player approaches edge", () => {
     edgeMargin: 96,
   });
 
-  assert.equal(result.targetLeft > 64, true);
-  assert.equal(result.targetTop > 64, true);
+  assert.ok(result.targetLeft > 64);
+  assert.ok(result.targetTop > 64);
 });
 
 test("stepSmoothScroll interpolates and snaps near target", () => {

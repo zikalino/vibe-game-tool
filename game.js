@@ -35,7 +35,7 @@ const MONSTER_STEP_FRAMES = 6;
 const CAMERA_EDGE_MARGIN_TILES = 3;
 const CAMERA_SMOOTHING = 0.2;
 const MOVE_KEYS = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
-const ACTION_KEYS = ["f", " ", "spacebar"];
+const ACTION_KEYS = ["f", " "];
 
 const waterConfig = {
   min: WATER_MIN,
@@ -464,7 +464,7 @@ function onKeyDown(event) {
     tryMove(-1, 0);
   } else if (key === "arrowright" || key === "d") {
     tryMove(1, 0);
-  } else if (key === " " || key === "spacebar") {
+  } else if (key === " ") {
     breakSoil();
     event.preventDefault();
   }
