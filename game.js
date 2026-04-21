@@ -16,6 +16,7 @@ import { stepMonsters } from "./systems/monsterSystem.js";
 import { stepRocks } from "./systems/rockSystem.js";
 import { stepWater } from "./systems/waterSystem.js";
 import { clampTileCount, resizeWorldGrid } from "./systems/worldResize.js";
+import { calculateCameraTarget, stepSmoothScroll } from "./systems/cameraSystem.js";
 
 const TILE_SIZE = 32;
 let COLS = 24;
@@ -31,6 +32,10 @@ const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
 const ROCK_STEP_FRAMES = 4;
 const MONSTER_STEP_FRAMES = 6;
+const CAMERA_EDGE_MARGIN_TILES = 3;
+const CAMERA_SMOOTHING = 0.2;
+const MOVE_KEYS = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
+const ACTION_KEYS = ["f", " "];
 
 const waterConfig = {
   min: WATER_MIN,
@@ -51,6 +56,7 @@ const playAgainBtn = document.getElementById("playAgainBtn");
 const playBtn = document.getElementById("playBtn");
 const editBtn = document.getElementById("editBtn");
 const mapResizeEl = document.querySelector(".map-resize");
+const gameWrapEl = document.querySelector(".game-wrap");
 
 const world = buildWorld();
 const player = {
@@ -70,6 +76,8 @@ let rockFrameCounter = 0;
 let monsterFrameCounter = 0;
 let appMode = "edit";
 let savedWorld = null;
+let cameraScrollLeft = 0;
+let cameraScrollTop = 0;
 
 window.addEventListener("keydown", onKeyDown);
 canvas.addEventListener("mousedown", onMouseDown);
@@ -134,6 +142,10 @@ function loop() {
     }
 
     updatePlayerState();
+  }
+
+  if (appMode === "play") {
+    updateCamera();
   }
 
   updateHud();
@@ -355,6 +367,9 @@ function startPlay() {
   isMousePouring = false;
   winOverlayEl.classList.add("hidden");
   appMode = "play";
+  document.body.classList.add("play-mode");
+  cameraScrollLeft = gameWrapEl.scrollLeft;
+  cameraScrollTop = gameWrapEl.scrollTop;
   playBtn.classList.add("hidden");
   editBtn.classList.remove("hidden");
   updateHud();
@@ -375,6 +390,11 @@ function startEdit() {
   isMousePouring = false;
   winOverlayEl.classList.add("hidden");
   appMode = "edit";
+  document.body.classList.remove("play-mode");
+  gameWrapEl.scrollLeft = 0;
+  gameWrapEl.scrollTop = 0;
+  cameraScrollLeft = 0;
+  cameraScrollTop = 0;
   playBtn.classList.remove("hidden");
   editBtn.classList.add("hidden");
   updateHud();
@@ -400,6 +420,12 @@ function updateHud() {
 
 function onKeyDown(event) {
   const key = event.key.toLowerCase();
+  const isMoveKey = MOVE_KEYS.includes(key);
+  const isActionKey = ACTION_KEYS.includes(key);
+
+  if (appMode === "play" && (isMoveKey || isActionKey)) {
+    event.preventDefault();
+  }
 
   if (key === "r") {
     resetGame();
@@ -438,9 +464,8 @@ function onKeyDown(event) {
     tryMove(-1, 0);
   } else if (key === "arrowright" || key === "d") {
     tryMove(1, 0);
-  } else if (key === " " || key === "spacebar") {
+  } else if (key === " ") {
     breakSoil();
-    event.preventDefault();
   }
 }
 
@@ -639,6 +664,33 @@ function drawGrid() {
     ctx.lineTo(COLS * TILE_SIZE, py);
     ctx.stroke();
   }
+}
+
+function updateCamera() {
+  const viewportWidth = gameWrapEl.clientWidth;
+  const viewportHeight = gameWrapEl.clientHeight;
+  if (viewportWidth <= 0 || viewportHeight <= 0) {
+    return;
+  }
+
+  const edgeMargin = TILE_SIZE * CAMERA_EDGE_MARGIN_TILES;
+  const { targetLeft, targetTop } = calculateCameraTarget({
+    playerX: player.x,
+    playerY: player.y,
+    tileSize: TILE_SIZE,
+    viewportWidth,
+    viewportHeight,
+    scrollLeft: cameraScrollLeft,
+    scrollTop: cameraScrollTop,
+    contentWidth: canvas.width,
+    contentHeight: canvas.height,
+    edgeMargin,
+  });
+
+  cameraScrollLeft = stepSmoothScroll(cameraScrollLeft, targetLeft, CAMERA_SMOOTHING);
+  cameraScrollTop = stepSmoothScroll(cameraScrollTop, targetTop, CAMERA_SMOOTHING);
+  gameWrapEl.scrollLeft = cameraScrollLeft;
+  gameWrapEl.scrollTop = cameraScrollTop;
 }
 
 function buildWorld() {

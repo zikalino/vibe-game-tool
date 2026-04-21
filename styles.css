@@ -22,6 +22,10 @@ body {
   background: #f2efe7;
 }
 
+body.play-mode {
+  overflow: hidden;
+}
+
 .layout {
   width: min(1100px, 100% - 24px);
   margin: var(--layout-gap-edge) auto;
@@ -199,6 +203,19 @@ p {
   max-height: calc(100vh - (var(--layout-gap-edge) * 2));
   box-shadow: 0 10px 28px rgba(20, 45, 68, 0.18);
   background: #dbe8f7;
+}
+
+body.play-mode .panel {
+  display: none;
+}
+
+body.play-mode .layout {
+  width: min(100%, calc(var(--canvas-width) + 32px));
+  grid-template-columns: 1fr;
+}
+
+body.play-mode .game-wrap {
+  overflow: hidden;
 }
 
 .map-resize {
