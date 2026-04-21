@@ -71,6 +71,15 @@ export function resolveGitHubClientId(metaClientId, windowClientId) {
   return normalizeClientId(metaClientId) || normalizeClientId(windowClientId);
 }
 
+export function isGitHubAuthSession(auth) {
+  return Boolean(
+    auth
+    && typeof auth === "object"
+    && typeof auth.accessToken === "string"
+    && auth.accessToken.length > 0,
+  );
+}
+
 export function getGitHubAuthUnavailableMessage() {
   return "GitHub auth unavailable: missing GitHub OAuth client ID. Set the github-client-id meta tag or window.VIBE_GITHUB_CLIENT_ID.";
 }

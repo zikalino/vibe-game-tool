@@ -6,6 +6,7 @@ import {
   createPkceChallenge,
   createPkceVerifier,
   getGitHubAuthUnavailableMessage,
+  isGitHubAuthSession,
   parseGitHubCallbackParams,
   resolveGitHubClientId,
 } from "./githubAuthSystem.js";
@@ -58,6 +59,14 @@ test("resolveGitHubClientId returns first non-empty trimmed value", () => {
   assert.equal(resolveGitHubClientId("  meta-id  ", "window-id"), "meta-id");
   assert.equal(resolveGitHubClientId("   ", "  window-id  "), "window-id");
   assert.equal(resolveGitHubClientId("", ""), "");
+});
+
+test("isGitHubAuthSession checks required auth token shape", () => {
+  assert.equal(isGitHubAuthSession({ accessToken: "token123" }), true);
+  assert.equal(isGitHubAuthSession({ accessToken: "" }), false);
+  assert.equal(isGitHubAuthSession({ token: "token123" }), false);
+  assert.equal(isGitHubAuthSession(null), false);
+  assert.equal(isGitHubAuthSession(undefined), false);
 });
 
 test("getGitHubAuthUnavailableMessage explains missing configuration", () => {
