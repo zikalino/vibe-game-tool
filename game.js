@@ -483,9 +483,6 @@ function startEdit() {
 }
 
 function onGitHubAuthClick() {
-  if (appMode !== "edit") {
-    return;
-  }
   window.alert("GitHub authentication is not implemented yet.");
 }
 
