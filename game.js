@@ -766,7 +766,12 @@ async function exchangeGitHubCodeForToken({
         scope: data.scope || "",
       };
     } catch (error) {
-      if (error && typeof error === "object" && typeof error.tokenExchangeUrl !== "string") {
+      if (
+        error
+        && typeof error === "object"
+        && Object.isExtensible(error)
+        && !Object.hasOwn(error, "tokenExchangeUrl")
+      ) {
         error.tokenExchangeUrl = tokenExchangeUrl;
       }
       lastError = error;

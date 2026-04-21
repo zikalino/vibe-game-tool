@@ -84,10 +84,9 @@ export function formatGitHubTokenExchangeError(error) {
     return "unknown error";
   }
   if (message === "Failed to fetch") {
-    const tokenExchangeUrl = typeof error?.tokenExchangeUrl === "string" ? error.tokenExchangeUrl : "";
-    const endpointDetails = tokenExchangeUrl
-      ? ` while POSTing the callback code to ${tokenExchangeUrl}`
-      : " while POSTing the callback code to the token endpoint";
+    const errorEndpointUrl = typeof error?.tokenExchangeUrl === "string" ? error.tokenExchangeUrl : "";
+    const endpointPrefix = " while POSTing the callback code to ";
+    const endpointDetails = `${endpointPrefix}${errorEndpointUrl || "the token endpoint"}`;
     return `network request failed${endpointDetails}; this step exchanges the GitHub callback code for an access token (possible CORS restriction or blocked token endpoint)`;
   }
   return message;
