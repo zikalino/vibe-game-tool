@@ -9,6 +9,30 @@ export function stepRocks({ world, rows, cols, inBounds, tileType, makeEmpty, ma
         continue;
       }
 
+      const rock = world[y][x];
+      if (rock.charge > 0 && rock.vx !== 0) {
+        const nx = x + rock.vx;
+        if (inBounds(nx, y) && world[y][nx].type === tileType.EMPTY) {
+          moveRock({
+            fromX: x,
+            fromY: y,
+            toX: nx,
+            toY: y,
+            moved,
+            world,
+            makeEmpty,
+            makeRock,
+            player,
+            setGameState,
+            charge: rock.charge - 1,
+            vx: rock.vx,
+          });
+          continue;
+        }
+
+        world[y][x] = makeRock(0, 0);
+      }
+
       const below = world[y + 1][x];
       if (below.type === tileType.EMPTY) {
         moveRock({
@@ -22,6 +46,8 @@ export function stepRocks({ world, rows, cols, inBounds, tileType, makeEmpty, ma
           makeRock,
           player,
           setGameState,
+          charge: world[y][x].charge,
+          vx: world[y][x].vx,
         });
         continue;
       }
@@ -52,6 +78,8 @@ export function stepRocks({ world, rows, cols, inBounds, tileType, makeEmpty, ma
           makeRock,
           player,
           setGameState,
+          charge: world[y][x].charge,
+          vx: world[y][x].vx,
         });
         break;
       }
@@ -65,9 +93,9 @@ function isRockSupport(tile, tileType) {
   return tile.type === tileType.STONE || tile.type === tileType.ROCK;
 }
 
-function moveRock({ fromX, fromY, toX, toY, moved, world, makeEmpty, makeRock, player, setGameState }) {
+function moveRock({ fromX, fromY, toX, toY, moved, world, makeEmpty, makeRock, player, setGameState, charge = 0, vx = 0 }) {
   world[fromY][fromX] = makeEmpty();
-  world[toY][toX] = makeRock();
+  world[toY][toX] = makeRock(charge, vx);
   moved[toY][toX] = true;
 
   if (player.x === toX && player.y === toY) {
