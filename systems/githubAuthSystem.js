@@ -77,6 +77,17 @@ export function formatGitHubCallbackDiagnostics(callbackParams) {
   return `GitHub callback received (code: ${hasCode ? "yes" : "no"}, state: ${hasState ? "yes" : "no"}, error: ${error}).`;
 }
 
+export function formatGitHubTokenExchangeError(error) {
+  const message = typeof error?.message === "string" ? error.message.trim() : "";
+  if (!message) {
+    return "unknown error";
+  }
+  if (message === "Failed to fetch") {
+    return "network request failed (possible CORS restriction or blocked token endpoint)";
+  }
+  return message;
+}
+
 export function resolveGitHubClientId(metaClientId, windowClientId) {
   return normalizeClientId(metaClientId) || normalizeClientId(windowClientId);
 }

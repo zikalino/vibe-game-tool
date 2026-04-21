@@ -28,6 +28,7 @@ import {
   createPkceChallenge,
   createPkceVerifier,
   formatGitHubCallbackDiagnostics,
+  formatGitHubTokenExchangeError,
   getGitHubAuthUnavailableMessage,
   isGitHubAuthSession,
   parseGitHubCallbackParams,
@@ -47,6 +48,7 @@ const DIAMOND_GOAL = 4;
 const MAX_ROCK_CHARGE = 8;
 const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
+const GITHUB_TOKEN_ERROR_SUMMARY_MAX_LENGTH = 180;
 const ROCK_STEP_FRAMES_1X = 2;
 const MONSTER_STEP_FRAMES_1X = 3;
 const DEFAULT_TRANSITION_FRAMES = 1;
@@ -618,7 +620,8 @@ async function initializeGitHubAuth() {
     console.error("GitHub auth callback failed:", error);
     gameContext.githubAuth = null;
     sessionStorage.removeItem(GITHUB_AUTH_STORAGE_KEY);
-    failureMessage = `${callbackDiagnostics} GitHub auth failed while exchanging token.`;
+    const tokenExchangeError = formatGitHubTokenExchangeError(error);
+    failureMessage = `${callbackDiagnostics} GitHub auth failed while exchanging token: ${tokenExchangeError}.`;
     refreshGitHubAuthUi(failureMessage);
   } finally {
     clearPendingGitHubAuth();
@@ -703,26 +706,34 @@ async function exchangeGitHubCodeForToken({
   state,
   codeVerifier,
 }) {
+  const requestBody = new URLSearchParams({
+    client_id: githubClientId,
+    code,
+    redirect_uri: redirectUri,
+    state,
+    code_verifier: codeVerifier,
+  });
   const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: JSON.stringify({
-      client_id: githubClientId,
-      code,
-      redirect_uri: redirectUri,
-      state,
-      code_verifier: codeVerifier,
-    }),
+    body: requestBody.toString(),
   });
 
+  const responseText = await response.text();
+
   if (!response.ok) {
-    throw new Error(`GitHub token endpoint failed (${response.status})`);
+    const errorData = parseGitHubTokenEndpointResponse(responseText);
+    const reason = errorData?.error_description
+      || errorData?.error
+      || summarizeGitHubTokenErrorBody(responseText)
+      || "unknown error";
+    throw new Error(`GitHub token endpoint failed (${response.status}): ${reason}`);
   }
 
-  const data = await response.json();
+  const data = parseGitHubTokenEndpointResponse(responseText, { warnOnParseError: true }) || {};
   if (data.error) {
     throw new Error(data.error_description || data.error);
   }
@@ -758,6 +769,43 @@ function normalizeAuthTokenType(tokenType) {
     return "Bearer";
   }
   return tokenType;
+}
+
+function summarizeGitHubTokenErrorBody(responseText) {
+  if (typeof responseText !== "string") {
+    return "";
+  }
+  const normalized = responseText.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "";
+  }
+  const truncated = normalized.length <= GITHUB_TOKEN_ERROR_SUMMARY_MAX_LENGTH
+    ? normalized
+    : `${normalized.slice(0, GITHUB_TOKEN_ERROR_SUMMARY_MAX_LENGTH - 3)}...`;
+  return escapeHtmlEntities(truncated);
+}
+
+function parseGitHubTokenEndpointResponse(responseText, options = {}) {
+  if (!responseText) {
+    return {};
+  }
+  try {
+    return JSON.parse(responseText);
+  } catch {
+    if (options.warnOnParseError) {
+      console.warn("GitHub token endpoint returned non-JSON response.");
+    }
+    return {};
+  }
+}
+
+function escapeHtmlEntities(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function refreshGitHubAuthUi(errorMessage = "") {
