@@ -94,6 +94,8 @@ editBtn.addEventListener("click", startEdit);
 exitPlayBtn.addEventListener("click", startEdit);
 edgeControlsEl.addEventListener("click", onExpandEdgeClick);
 new ResizeObserver(onMapResize).observe(mapResizeEl);
+edgeControlsEl.style.width = `${canvas.width}px`;
+edgeControlsEl.style.height = `${canvas.height}px`;
 
 updateHud();
 requestAnimationFrame(loop);
