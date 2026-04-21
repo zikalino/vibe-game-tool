@@ -92,10 +92,7 @@ playAgainBtn.addEventListener("click", resetGame);
 playBtn.addEventListener("click", startPlay);
 editBtn.addEventListener("click", startEdit);
 exitPlayBtn.addEventListener("click", startEdit);
-const edgeButtons = edgeControlsEl.querySelectorAll("button[data-expand-edge][data-expand-amount]");
-for (const button of edgeButtons) {
-  button.addEventListener("click", onExpandEdgeClick);
-}
+edgeControlsEl.addEventListener("click", onExpandEdgeClick);
 new ResizeObserver(onMapResize).observe(mapResizeEl);
 
 updateHud();
