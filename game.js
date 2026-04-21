@@ -2,6 +2,7 @@ import {
   TileType,
   canHoldWater,
   getWaterAmount,
+  isMonsterType,
   makeDiamond,
   makeEmpty,
   makeGoal,
@@ -12,10 +13,9 @@ import {
   makeRock,
   makeSoil,
   makeStone,
+  tickWorldObjects,
   makeWater,
 } from "./tiles/tileDefs.js";
-import { stepMonsters } from "./systems/monsterSystem.js";
-import { stepRocks } from "./systems/rockSystem.js";
 import { stepWater } from "./systems/waterSystem.js";
 import { clampTileCount, resizeWorldGridWithOffset } from "./systems/worldResize.js";
 import { calculateCameraTarget, stepSmoothScroll } from "./systems/cameraSystem.js";
@@ -107,33 +107,31 @@ requestAnimationFrame(loop);
 function loop() {
   if (appMode === "play" && gameState === "playing") {
     rockFrameCounter += 1;
-    if (rockFrameCounter >= ROCK_STEP_FRAMES) {
-      rockRollBias = stepRocks({
+    monsterFrameCounter += 1;
+
+    const shouldTickRocks = rockFrameCounter >= ROCK_STEP_FRAMES;
+    const shouldTickMonsters = monsterFrameCounter >= MONSTER_STEP_FRAMES;
+
+    if (shouldTickRocks || shouldTickMonsters) {
+      rockRollBias = tickWorldObjects({
         world,
         rows: ROWS,
         cols: COLS,
         inBounds,
-        tileType: TileType,
         makeEmpty,
         makeRock,
         player,
         setGameState,
         rollBias: rockRollBias,
+        shouldTickType: (type) => (type === TileType.ROCK && shouldTickRocks) || (isMonsterType(type) && shouldTickMonsters),
       });
+    }
+
+    if (shouldTickRocks) {
       rockFrameCounter = 0;
     }
-    monsterFrameCounter += 1;
-    if (monsterFrameCounter >= MONSTER_STEP_FRAMES) {
-      stepMonsters({
-        world,
-        rows: ROWS,
-        cols: COLS,
-        inBounds,
-        tileType: TileType,
-        makeEmpty,
-        player,
-        setGameState,
-      });
+
+    if (shouldTickMonsters) {
       monsterFrameCounter = 0;
     }
 

@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { stepMonsters } from "./monsterSystem.js";
 import {
   TileType,
   makeEmpty,
@@ -9,6 +8,7 @@ import {
   makeMonsterVertical,
   makeMonsterWander,
   makeStone,
+  tickWorldObjects,
 } from "../tiles/tileDefs.js";
 
 function makeWorld(rows, cols) {
@@ -22,15 +22,17 @@ test("horizontal monster reverses direction when blocked", () => {
   world[2][2] = makeMonsterHorizontal(1);
   world[2][3] = makeStone();
 
-  stepMonsters({
+  tickWorldObjects({
     world,
     rows,
     cols,
     inBounds: (x, y) => x >= 0 && x < cols && y >= 0 && y < rows,
-    tileType: TileType,
     makeEmpty,
+    makeRock: () => {},
     player: { x: 0, y: 0 },
     setGameState: () => {},
+    rollBias: 1,
+    shouldTickType: (type) => type === TileType.MONSTER_H,
   });
 
   assert.equal(world[2][1].type, TileType.MONSTER_H);
@@ -44,15 +46,17 @@ test("vertical monster reverses direction when blocked", () => {
   world[2][2] = makeMonsterVertical(1);
   world[3][2] = makeStone();
 
-  stepMonsters({
+  tickWorldObjects({
     world,
     rows,
     cols,
     inBounds: (x, y) => x >= 0 && x < cols && y >= 0 && y < rows,
-    tileType: TileType,
     makeEmpty,
+    makeRock: () => {},
     player: { x: 0, y: 0 },
     setGameState: () => {},
+    rollBias: 1,
+    shouldTickType: (type) => type === TileType.MONSTER_V,
   });
 
   assert.equal(world[1][2].type, TileType.MONSTER_V);
@@ -67,18 +71,20 @@ test("wander monster can kill player on contact", () => {
   const player = { x: 3, y: 2 };
 
   let state = "playing";
-  stepMonsters({
+  tickWorldObjects({
     world,
     rows,
     cols,
     inBounds: (x, y) => x >= 0 && x < cols && y >= 0 && y < rows,
-    tileType: TileType,
     makeEmpty,
+    makeRock: () => {},
     player,
     setGameState: (nextState) => {
       state = nextState;
     },
     random: () => 0,
+    rollBias: 1,
+    shouldTickType: (type) => type === TileType.MONSTER_WANDER,
   });
 
   assert.equal(state, "lost");
