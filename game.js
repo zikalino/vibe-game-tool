@@ -70,6 +70,7 @@ const playAgainBtn = document.getElementById("playAgainBtn");
 const playBtn = document.getElementById("playBtn");
 const editBtn = document.getElementById("editBtn");
 const tickIntervalSelectEl = document.getElementById("tickIntervalSelect");
+const githubAuthBtn = document.getElementById("githubAuthBtn");
 const exitPlayBtn = document.getElementById("exitPlayBtn");
 const edgeControlsEl = document.getElementById("edgeControls");
 const mapResizeEl = document.querySelector(".map-resize");
@@ -109,6 +110,7 @@ playAgainBtn.addEventListener("click", resetGame);
 playBtn.addEventListener("click", startPlay);
 editBtn.addEventListener("click", startEdit);
 tickIntervalSelectEl.addEventListener("change", onTickIntervalChange);
+githubAuthBtn.addEventListener("click", onGitHubAuthClick);
 exitPlayBtn.addEventListener("click", startEdit);
 edgeControlsEl.addEventListener("click", onExpandEdgeClick);
 new ResizeObserver(onMapResize).observe(mapResizeEl);
@@ -494,6 +496,10 @@ function startEdit() {
   exitPlayBtn.classList.add("hidden");
   edgeControlsEl.classList.remove("hidden");
   updateHud();
+}
+
+function onGitHubAuthClick() {
+  window.alert("GitHub authentication is coming soon. Please check back later.");
 }
 
 function cloneWorld(src) {
