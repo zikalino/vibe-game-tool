@@ -772,7 +772,7 @@ async function exchangeGitHubCodeForToken({
     }
   }
 
-  throw lastError || new Error("GitHub token exchange failed.");
+  throw lastError;
 }
 
 async function fetchGitHubUser(accessToken, tokenType) {

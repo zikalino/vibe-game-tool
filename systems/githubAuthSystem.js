@@ -5,7 +5,7 @@ const GITHUB_TOKEN_RESPONSE_FIELDS = ["access_token", "token_type", "scope", "er
 export const GITHUB_AUTH_STORAGE_KEY = "vibeGame.githubAuth";
 export const GITHUB_AUTH_PENDING_KEY = "vibeGame.githubAuth.pending";
 
-function normalizeClientId(value) {
+function normalizeConfigValue(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
@@ -115,11 +115,11 @@ export function parseGitHubTokenEndpointResponse(responseText, options = {}) {
 }
 
 export function resolveGitHubClientId(metaClientId, windowClientId) {
-  return normalizeClientId(metaClientId) || normalizeClientId(windowClientId);
+  return normalizeConfigValue(metaClientId) || normalizeConfigValue(windowClientId);
 }
 
 export function resolveGitHubTokenExchangeUrl(metaTokenExchangeUrl, windowTokenExchangeUrl) {
-  return normalizeClientId(metaTokenExchangeUrl) || normalizeClientId(windowTokenExchangeUrl);
+  return normalizeConfigValue(metaTokenExchangeUrl) || normalizeConfigValue(windowTokenExchangeUrl);
 }
 
 export function isGitHubAuthSession(auth) {
