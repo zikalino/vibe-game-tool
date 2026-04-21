@@ -32,6 +32,7 @@ import {
   getGitHubAuthUnavailableMessage,
   isGitHubAuthSession,
   parseGitHubCallbackParams,
+  parseGitHubTokenEndpointResponse,
   resolveGitHubClientId,
 } from "./systems/githubAuthSystem.js";
 
@@ -783,20 +784,6 @@ function summarizeGitHubTokenErrorBody(responseText) {
     ? normalized
     : `${normalized.slice(0, GITHUB_TOKEN_ERROR_SUMMARY_MAX_LENGTH - 3)}...`;
   return escapeHtmlEntities(truncated);
-}
-
-function parseGitHubTokenEndpointResponse(responseText, options = {}) {
-  if (!responseText) {
-    return {};
-  }
-  try {
-    return JSON.parse(responseText);
-  } catch {
-    if (options.warnOnParseError) {
-      console.warn("GitHub token endpoint returned non-JSON response.");
-    }
-    return {};
-  }
 }
 
 function escapeHtmlEntities(value) {
