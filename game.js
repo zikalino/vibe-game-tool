@@ -19,6 +19,7 @@ import {
 import { stepWater } from "./systems/waterSystem.js";
 import { clampTileCount, resizeWorldGridWithOffset } from "./systems/worldResize.js";
 import { calculateCameraTarget, stepSmoothScroll } from "./systems/cameraSystem.js";
+import { collectTransitioningTiles } from "./systems/transitionRenderSystem.js";
 
 const TILE_SIZE = 32;
 let COLS = 24;
@@ -640,19 +641,29 @@ function pourWaterForward() {
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const transitioningTiles = collectTransitioningTiles(world, TileType.EMPTY);
+  const transitioningKeys = new Set(transitioningTiles.map(({ x, y }) => `${x},${y}`));
 
   for (let y = 0; y < ROWS; y += 1) {
     for (let x = 0; x < COLS; x += 1) {
-      drawTile(x, y, world[y][x]);
+      if (transitioningKeys.has(`${x},${y}`)) {
+        drawTile(x, y, { type: TileType.EMPTY }, false);
+        continue;
+      }
+      drawTile(x, y, world[y][x], false);
     }
+  }
+
+  for (const { x, y, tile } of transitioningTiles) {
+    drawTile(x, y, tile, true);
   }
 
   drawPlayer();
   drawGrid();
 }
 
-function drawTile(x, y, tile) {
-  const transition = getTileTransitionOffset(tile);
+function drawTile(x, y, tile, applyTransition = true) {
+  const transition = applyTransition ? getTileTransitionOffset(tile) : { x: 0, y: 0 };
   const px = x * TILE_SIZE + transition.x;
   const py = y * TILE_SIZE + transition.y;
 
