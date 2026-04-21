@@ -1,7 +1,7 @@
 import { BaseObject } from "../baseObject.js";
 
 const SHATTER_FALL_DISTANCE = 3;
-const DIAMOND_IMAGE_URL = "https://github.com/user-attachments/assets/713d53dd-c3f8-4ce0-89c6-4eba629f3372";
+const DIAMOND_IMAGE_URL = "images/diamond.png";
 
 export class GemObject extends BaseObject {
   constructor(tileType, diamondImage = createDiamondImage()) {
