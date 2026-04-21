@@ -221,6 +221,7 @@ p {
   top: 0;
   left: 0;
   z-index: 5;
+  pointer-events: none;
 }
 
 .edge-controls-row {
