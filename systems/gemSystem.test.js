@@ -28,6 +28,9 @@ test("gem falls one tile when space below is empty", () => {
 
   assert.equal(world[2][1].type, TileType.DIAMOND);
   assert.equal(world[2][1].fallDistance, 1);
+  assert.equal(world[2][1].transDx, 0);
+  assert.equal(world[2][1].transDy, -1);
+  assert.equal(world[2][1].transProgress, 1);
 });
 
 test("gem shatters after high fall onto stone", () => {

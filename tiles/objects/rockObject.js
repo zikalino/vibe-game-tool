@@ -99,7 +99,11 @@ function isRockSupport(tile, tileType) {
 
 function moveRock({ fromX, fromY, toX, toY, moved, world, makeEmpty, makeRock, player, setGameState, charge = 0, vx = 0 }) {
   world[fromY][fromX] = makeEmpty();
-  world[toY][toX] = makeRock(charge, vx);
+  const nextRock = makeRock(charge, vx);
+  nextRock.transDx = fromX - toX;
+  nextRock.transDy = fromY - toY;
+  nextRock.transProgress = 1;
+  world[toY][toX] = nextRock;
   moved[toY][toX] = true;
 
   if (player.x === toX && player.y === toY) {

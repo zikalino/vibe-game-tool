@@ -89,7 +89,11 @@ function shouldShatter({ below, gem, tileType }) {
 
 function moveGem({ fromX, fromY, toX, toY, moved, world, makeEmpty, makeDiamond, player, setGameState, fallDistance = 0 }) {
   world[fromY][fromX] = makeEmpty();
-  world[toY][toX] = makeDiamond(fallDistance);
+  const nextGem = makeDiamond(fallDistance);
+  nextGem.transDx = fromX - toX;
+  nextGem.transDy = fromY - toY;
+  nextGem.transProgress = 1;
+  world[toY][toX] = nextGem;
   moved[toY][toX] = true;
 
   if (player.x === toX && player.y === toY) {

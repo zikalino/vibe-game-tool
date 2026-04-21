@@ -37,6 +37,9 @@ test("horizontal monster reverses direction when blocked", () => {
 
   assert.equal(world[2][1].type, TileType.MONSTER_H);
   assert.equal(world[2][1].dx, -1);
+  assert.equal(world[2][1].transDx, 1);
+  assert.equal(world[2][1].transDy, 0);
+  assert.equal(world[2][1].transProgress, 1);
 });
 
 test("vertical monster reverses direction when blocked", () => {

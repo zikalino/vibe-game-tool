@@ -70,5 +70,12 @@ function canMoveTo({ x, y, world, inBounds, tileType, player }) {
 function moveMonster({ world, fromX, fromY, toX, toY, makeEmpty, nextDx, nextDy }) {
   const monster = world[fromY][fromX];
   world[fromY][fromX] = makeEmpty();
-  world[toY][toX] = { type: monster.type, dx: nextDx, dy: nextDy };
+  world[toY][toX] = {
+    type: monster.type,
+    dx: nextDx,
+    dy: nextDy,
+    transDx: fromX - toX,
+    transDy: fromY - toY,
+    transProgress: 1,
+  };
 }

@@ -53,6 +53,9 @@ test("charged rock moves horizontally and loses charge", () => {
   assert.equal(world[1][3].type, TileType.ROCK);
   assert.equal(world[1][3].charge, 1);
   assert.equal(world[1][3].vx, 1);
+  assert.equal(world[1][3].transDx, -1);
+  assert.equal(world[1][3].transDy, 0);
+  assert.equal(world[1][3].transProgress, 1);
 });
 
 test("charged rock drops charge when blocked", () => {

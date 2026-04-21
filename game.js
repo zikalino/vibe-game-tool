@@ -35,10 +35,18 @@ const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
 const ROCK_STEP_FRAMES = 4;
 const MONSTER_STEP_FRAMES = 6;
+const DEFAULT_TRANSITION_FRAMES = 1;
 const CAMERA_EDGE_MARGIN_TILES = 3;
 const CAMERA_SMOOTHING = 0.2;
 const MOVE_KEYS = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
 const ACTION_KEYS = ["f", " "];
+const OBJECT_TRANSITION_FRAMES = {
+  [TileType.ROCK]: ROCK_STEP_FRAMES,
+  [TileType.DIAMOND]: ROCK_STEP_FRAMES,
+  [TileType.MONSTER_H]: MONSTER_STEP_FRAMES,
+  [TileType.MONSTER_V]: MONSTER_STEP_FRAMES,
+  [TileType.MONSTER_WANDER]: MONSTER_STEP_FRAMES,
+};
 
 const waterConfig = {
   min: WATER_MIN,
@@ -159,6 +167,7 @@ function loop() {
     updateCamera();
   }
 
+  stepObjectTransitions();
   updateHud();
   draw();
   requestAnimationFrame(loop);
@@ -571,6 +580,7 @@ function tryMove(dx, dy) {
     }
     const nextCharge = Math.min(target.charge + 1, MAX_ROCK_CHARGE);
     world[ny][pushX] = makeRock(nextCharge, dx);
+    applyTileTransition(world[ny][pushX], nx, ny, pushX, ny);
     world[ny][nx] = makeEmpty();
     player.x = nx;
     player.y = ny;
@@ -642,8 +652,9 @@ function draw() {
 }
 
 function drawTile(x, y, tile) {
-  const px = x * TILE_SIZE;
-  const py = y * TILE_SIZE;
+  const transition = getTileTransitionOffset(tile);
+  const px = x * TILE_SIZE + transition.x;
+  const py = y * TILE_SIZE + transition.y;
 
   if (tile.type === TileType.EMPTY) {
     ctx.fillStyle = "#f2efe7";
@@ -795,6 +806,48 @@ function drawGrid() {
     ctx.lineTo(COLS * TILE_SIZE, py);
     ctx.stroke();
   }
+}
+
+function stepObjectTransitions() {
+  for (const row of world) {
+    for (const tile of row) {
+      if (typeof tile.transProgress !== "number" || tile.transProgress <= 0) {
+        continue;
+      }
+
+      const step = 1 / getTransitionFrames(tile.type);
+      tile.transProgress = Math.max(0, tile.transProgress - step);
+      if (tile.transProgress > 0) {
+        continue;
+      }
+
+      delete tile.transDx;
+      delete tile.transDy;
+      delete tile.transProgress;
+    }
+  }
+}
+
+function getTransitionFrames(type) {
+  return OBJECT_TRANSITION_FRAMES[type] || DEFAULT_TRANSITION_FRAMES;
+}
+
+function getTileTransitionOffset(tile) {
+  if (typeof tile.transProgress !== "number" || tile.transProgress <= 0) {
+    return { x: 0, y: 0 };
+  }
+  const transDx = Number.isFinite(tile.transDx) ? tile.transDx : 0;
+  const transDy = Number.isFinite(tile.transDy) ? tile.transDy : 0;
+  return {
+    x: transDx * TILE_SIZE * tile.transProgress,
+    y: transDy * TILE_SIZE * tile.transProgress,
+  };
+}
+
+function applyTileTransition(tile, fromX, fromY, toX, toY) {
+  tile.transDx = fromX - toX;
+  tile.transDy = fromY - toY;
+  tile.transProgress = 1;
 }
 
 function updateCamera() {
