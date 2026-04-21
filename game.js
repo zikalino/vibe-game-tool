@@ -43,19 +43,20 @@ const DIAMOND_GOAL = 4;
 const MAX_ROCK_CHARGE = 8;
 const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
-const ROCK_STEP_FRAMES = 4;
-const MONSTER_STEP_FRAMES = 6;
+const ROCK_STEP_FRAMES_1X = 2;
+const MONSTER_STEP_FRAMES_1X = 3;
 const DEFAULT_TRANSITION_FRAMES = 1;
 const CAMERA_EDGE_MARGIN_TILES = 3;
 const CAMERA_SMOOTHING = 0.2;
+const ALLOWED_TICK_INTERVAL_MULTIPLIERS = new Set([1, 2]);
 const MOVE_KEYS = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
 const ACTION_KEYS = ["f", " "];
 const OBJECT_TRANSITION_FRAMES = {
-  [TileType.ROCK]: ROCK_STEP_FRAMES,
-  [TileType.DIAMOND]: ROCK_STEP_FRAMES,
-  [TileType.MONSTER_H]: MONSTER_STEP_FRAMES,
-  [TileType.MONSTER_V]: MONSTER_STEP_FRAMES,
-  [TileType.MONSTER_WANDER]: MONSTER_STEP_FRAMES,
+  [TileType.ROCK]: ROCK_STEP_FRAMES_1X,
+  [TileType.DIAMOND]: ROCK_STEP_FRAMES_1X,
+  [TileType.MONSTER_H]: MONSTER_STEP_FRAMES_1X,
+  [TileType.MONSTER_V]: MONSTER_STEP_FRAMES_1X,
+  [TileType.MONSTER_WANDER]: MONSTER_STEP_FRAMES_1X,
 };
 
 const waterConfig = {
@@ -76,6 +77,7 @@ const winOverlayEl = document.getElementById("winOverlay");
 const playAgainBtn = document.getElementById("playAgainBtn");
 const playBtn = document.getElementById("playBtn");
 const editBtn = document.getElementById("editBtn");
+const tickIntervalSelectEl = document.getElementById("tickIntervalSelect");
 const githubAuthBtn = document.getElementById("githubAuthBtn");
 const githubAuthStatusEl = document.getElementById("githubAuthStatus");
 const exitPlayBtn = document.getElementById("exitPlayBtn");
@@ -106,6 +108,7 @@ let appMode = "edit";
 let savedWorld = null;
 let cameraScrollLeft = 0;
 let cameraScrollTop = 0;
+let tickIntervalMultiplier = 1;
 let isGitHubAuthLoading = false;
 
 const gameContext = {
@@ -123,6 +126,7 @@ toolsEl.addEventListener("click", onToolClick);
 playAgainBtn.addEventListener("click", resetGame);
 playBtn.addEventListener("click", startPlay);
 editBtn.addEventListener("click", startEdit);
+tickIntervalSelectEl.addEventListener("change", onTickIntervalChange);
 githubAuthBtn.addEventListener("click", onGitHubAuthClick);
 exitPlayBtn.addEventListener("click", startEdit);
 edgeControlsEl.addEventListener("click", onExpandEdgeClick);
@@ -139,8 +143,10 @@ function loop() {
     rockFrameCounter += 1;
     monsterFrameCounter += 1;
 
-    const shouldTickRocks = rockFrameCounter >= ROCK_STEP_FRAMES;
-    const shouldTickMonsters = monsterFrameCounter >= MONSTER_STEP_FRAMES;
+    const rockStepFrames = getRockStepFrames();
+    const monsterStepFrames = getMonsterStepFrames();
+    const shouldTickRocks = rockFrameCounter >= rockStepFrames;
+    const shouldTickMonsters = monsterFrameCounter >= monsterStepFrames;
 
     if (shouldTickRocks || shouldTickMonsters) {
       rockRollBias = tickWorldObjects({
@@ -240,6 +246,16 @@ function onToolClick(event) {
   }
 
   setSelectedTool(button.dataset.tool);
+}
+
+function onTickIntervalChange() {
+  const nextMultiplier = Number(tickIntervalSelectEl.value);
+  if (!ALLOWED_TICK_INTERVAL_MULTIPLIERS.has(nextMultiplier)) {
+    tickIntervalMultiplier = 1;
+    tickIntervalSelectEl.value = "1";
+    return;
+  }
+  tickIntervalMultiplier = nextMultiplier;
 }
 
 function setSelectedTool(tool) {
@@ -999,7 +1015,16 @@ function stepObjectTransitions() {
 }
 
 function getTransitionFrames(type) {
-  return OBJECT_TRANSITION_FRAMES[type] || DEFAULT_TRANSITION_FRAMES;
+  const baseFrames = OBJECT_TRANSITION_FRAMES[type] || DEFAULT_TRANSITION_FRAMES;
+  return Math.max(1, Math.round(baseFrames * tickIntervalMultiplier));
+}
+
+function getRockStepFrames() {
+  return Math.max(1, Math.round(ROCK_STEP_FRAMES_1X * tickIntervalMultiplier));
+}
+
+function getMonsterStepFrames() {
+  return Math.max(1, Math.round(MONSTER_STEP_FRAMES_1X * tickIntervalMultiplier));
 }
 
 function getTileTransitionOffset(tile) {

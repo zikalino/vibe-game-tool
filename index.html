@@ -35,6 +35,13 @@
         <button id="editBtn" type="button" class="edit-btn hidden">&#9998; Edit</button>
       </div>
       <button id="githubAuthBtn" type="button" class="github-auth-btn">Authenticate with GitHub</button>
+      <div class="tick-controls">
+        <label for="tickIntervalSelect">Tick interval</label>
+        <select id="tickIntervalSelect" aria-label="Tick interval">
+          <option value="1" selected>1x (default)</option>
+          <option value="2">2x (previous speed)</option>
+        </select>
+      </div>
       <p id="githubAuthStatus" class="github-auth-status">GitHub: Not connected.</p>
       <div class="tools" id="tools" aria-label="Build tools">
         <button class="tool is-active" data-tool="stone">Stone [1]</button>
