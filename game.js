@@ -506,7 +506,7 @@ function onGitHubAuthClick() {
   }
 
   if (!githubClientId) {
-    window.alert("GitHub auth is not configured. Set the github-client-id meta value first.");
+    window.alert("GitHub authentication is not available right now.");
     return;
   }
 
@@ -753,7 +753,7 @@ function refreshGitHubAuthUi(errorMessage = "") {
     githubAuthBtn.textContent = "GitHub Auth Unavailable";
     githubAuthBtn.disabled = true;
     if (githubAuthStatusEl) {
-      githubAuthStatusEl.textContent = "GitHub auth unavailable: missing client id.";
+      githubAuthStatusEl.textContent = "GitHub authentication is not available.";
     }
     return;
   }
