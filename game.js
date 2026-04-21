@@ -50,6 +50,7 @@ const DIAMOND_GOAL = 4;
 const MAX_ROCK_CHARGE = 8;
 const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
+const GITHUB_OAUTH_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
 const GITHUB_TOKEN_ERROR_SUMMARY_MAX_LENGTH = 180;
 const ROCK_STEP_FRAMES_1X = 2;
 const MONSTER_STEP_FRAMES_1X = 3;
@@ -724,11 +725,12 @@ async function exchangeGitHubCodeForToken({
   if (githubTokenExchangeUrl) {
     tokenExchangeUrls.push(githubTokenExchangeUrl);
   }
-  tokenExchangeUrls.push("https://github.com/login/oauth/access_token");
+  tokenExchangeUrls.push(GITHUB_OAUTH_TOKEN_ENDPOINT);
 
-  let lastError = null;
+  let lastError = new Error(`GitHub token exchange failed. Attempted endpoints: ${tokenExchangeUrls.join(", ")}`);
   for (const tokenExchangeUrl of tokenExchangeUrls) {
     try {
+      console.info(`Attempting GitHub token exchange via ${tokenExchangeUrl}.`);
       const response = await fetch(tokenExchangeUrl, {
         method: "POST",
         headers: {
@@ -765,10 +767,10 @@ async function exchangeGitHubCodeForToken({
       };
     } catch (error) {
       lastError = error;
-      if (tokenExchangeUrl === "https://github.com/login/oauth/access_token") {
+      if (tokenExchangeUrl === GITHUB_OAUTH_TOKEN_ENDPOINT) {
         break;
       }
-      console.warn(`GitHub token exchange via ${tokenExchangeUrl} failed; falling back to GitHub endpoint.`, error);
+      console.warn(`GitHub token exchange via ${tokenExchangeUrl} failed; falling back to the next endpoint.`, error);
     }
   }
 
