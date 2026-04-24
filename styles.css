@@ -218,27 +218,37 @@ body.play-mode .github-auth-status {
 }
 
 .tools {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin: 12px 0;
 }
 
 .tool {
-  border: 1px solid #7f8ca1;
-  border-radius: 8px;
-  padding: 7px 10px;
-  font: inherit;
-  font-weight: 700;
+  border: 2px solid #7f8ca1;
+  border-radius: 6px;
+  padding: 2px;
   background: #e9f1fb;
-  color: #23344a;
   cursor: pointer;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tool.is-active {
   background: #284f78;
-  color: #fff;
   border-color: #1f4062;
+  box-shadow: 0 0 0 2px #1f4062;
+}
+
+.tool-preview {
+  width: 36px;
+  height: 36px;
+  image-rendering: pixelated;
+  border-radius: 3px;
+  display: block;
 }
 
 .status {
@@ -426,4 +436,166 @@ canvas {
   .layout {
     grid-template-columns: 1fr;
   }
+}
+
+.pixel-editor-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(9, 24, 41, 0.8);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  z-index: 30;
+}
+
+.pixel-editor-overlay.hidden {
+  display: none;
+}
+
+.pixel-editor-card {
+  background: #1a2c40;
+  border: 2px solid #3a6088;
+  border-radius: 12px;
+  padding: 16px;
+  color: #e8f0f8;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.pixel-editor-title {
+  margin: 0 0 12px;
+  font-size: 1.2rem;
+  color: #c0d8f0;
+}
+
+.pixel-editor-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.pixel-editor-canvas {
+  image-rendering: pixelated;
+  cursor: crosshair;
+  border: 1px solid #3a6088;
+  touch-action: none;
+}
+
+.pixel-editor-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 130px;
+}
+
+.pixel-editor-palette {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+}
+
+.palette-color {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.palette-color:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.palette-color.is-selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px #fff;
+}
+
+.palette-color.transparent-swatch {
+  background-image: linear-gradient(45deg, #ccc 25%, transparent 25%),
+    linear-gradient(-45deg, #ccc 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #ccc 75%),
+    linear-gradient(-45deg, transparent 75%, #ccc 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+  background-color: #fff;
+}
+
+.pixel-editor-current-color-label {
+  font-size: 0.75rem;
+  color: #8ab0d0;
+  margin-top: 2px;
+}
+
+.pixel-editor-current-color {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  border: 2px solid #3a6088;
+}
+
+.pixel-editor-custom-label {
+  font-size: 0.75rem;
+  color: #8ab0d0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pixel-editor-custom-label input[type="color"] {
+  width: 100%;
+  height: 28px;
+  border: 1px solid #3a6088;
+  border-radius: 4px;
+  cursor: pointer;
+  background: none;
+  padding: 1px;
+}
+
+.pixel-editor-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.pixel-editor-actions button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pixel-editor-save-btn {
+  background: #2b7a3e;
+  color: #fff;
+}
+
+.pixel-editor-save-btn:hover {
+  background: #1f5c2e;
+}
+
+.pixel-editor-cancel-btn {
+  background: #5a3a3a;
+  color: #fff;
+}
+
+.pixel-editor-cancel-btn:hover {
+  background: #4a2a2a;
+}
+
+.pixel-editor-reset-btn {
+  background: #2e4a6e;
+  color: #fff;
+  margin-right: auto;
+}
+
+.pixel-editor-reset-btn:hover {
+  background: #1e3a5e;
 }

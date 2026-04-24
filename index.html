@@ -10,26 +10,6 @@
 <body>
   <main class="layout">
     <section class="panel">
-      <h1>Tile Water Sandbox</h1>
-      <p>
-        Move with Arrow Keys or WASD. Walking into soil digs it out.
-      </p>
-      <p>
-        Press F to pour water where your facing arrow points.
-      </p>
-      <p>
-        With Water tool selected, hold left mouse to pour from your cursor.
-      </p>
-      <p>
-        Stone is solid, soil is breakable, and water flows down first then spreads sideways.
-      </p>
-      <p>
-        Mouse build mode: left click places selected tile, right click erases.
-      </p>
-      <p>
-        Resize the tile grid by dragging its bottom-right corner or using the edge +1/+5/+10 controls in edit mode.
-        Maximum size is 1000x1000 tiles.
-      </p>
       <div class="mode-controls">
         <button id="playBtn" type="button" class="play-btn">&#9654; Play</button>
         <button id="editBtn" type="button" class="edit-btn hidden">&#9998; Edit</button>
@@ -47,16 +27,16 @@
       </div>
       <p id="githubAuthStatus" class="github-auth-status">GitHub: Not connected.</p>
       <div class="tools" id="tools" aria-label="Build tools">
-        <button class="tool is-active" data-tool="stone">Stone [1]</button>
-        <button class="tool" data-tool="soil">Soil [2]</button>
-        <button class="tool" data-tool="water">Water [3]</button>
-        <button class="tool" data-tool="rock">Rock [4]</button>
-        <button class="tool" data-tool="monsterH">Monster ↔ [5]</button>
-        <button class="tool" data-tool="monsterV">Monster ↕ [6]</button>
-        <button class="tool" data-tool="monsterWander">Monster ? [7]</button>
-        <button class="tool" data-tool="diamond">Diamond [8]</button>
-        <button class="tool" data-tool="lava">Lava [9]</button>
-        <button class="tool" data-tool="erase">Erase [0]</button>
+        <button class="tool is-active" data-tool="stone" title="Stone [1]"><canvas class="tool-preview" width="32" height="32" aria-hidden="true"></canvas></button>
+        <button class="tool" data-tool="soil" title="Soil [2]"><canvas class="tool-preview" width="32" height="32" aria-hidden="true"></canvas></button>
+        <button class="tool" data-tool="water" title="Water [3]"><canvas class="tool-preview" width="32" height="32" aria-hidden="true"></canvas></button>
+        <button class="tool" data-tool="rock" title="Rock [4]"><canvas class="tool-preview" width="32" height="32" aria-hidden="true"></canvas></button>
+        <button class="tool" data-tool="monsterH" title="Monster ↔ [5]"><canvas class="tool-preview" width="32" height="32" aria-hidden="true"></canvas></button>
+        <button class="tool" data-tool="monsterV" title="Monster ↕ [6]"><canvas class="tool-preview" width="32" height="32" aria-hidden="true"></canvas></button>
+        <button class="tool" data-tool="monsterWander" title="Monster ? [7]"><canvas class="tool-preview" width="32" height="32" aria-hidden="true"></canvas></button>
+        <button class="tool" data-tool="diamond" title="Diamond [8]"><canvas class="tool-preview" width="32" height="32" aria-hidden="true"></canvas></button>
+        <button class="tool" data-tool="lava" title="Lava [9]"><canvas class="tool-preview" width="32" height="32" aria-hidden="true"></canvas></button>
+        <button class="tool" data-tool="erase" title="Erase [0]"><canvas class="tool-preview" width="32" height="32" aria-hidden="true"></canvas></button>
       </div>
       <div class="status" aria-live="polite">
         <p>Objective: Collect 4 diamonds and reach the goal tile.</p>
@@ -114,6 +94,29 @@
       <button id="playAgainBtn" type="button">Play Again</button>
     </div>
   </section>
+
+  <div id="pixelEditor" class="pixel-editor-overlay hidden" role="dialog" aria-modal="true" aria-label="Tile pixel editor">
+    <div class="pixel-editor-card">
+      <h2 class="pixel-editor-title" id="pixelEditorTitle">Edit Tile</h2>
+      <div class="pixel-editor-body">
+        <canvas id="pixelEditorCanvas" class="pixel-editor-canvas" width="320" height="320"></canvas>
+        <div class="pixel-editor-sidebar">
+          <div class="pixel-editor-palette" id="pixelEditorPalette" aria-label="Color palette"></div>
+          <div class="pixel-editor-current-color-label">Current color</div>
+          <div class="pixel-editor-current-color" id="pixelEditorCurrentColor"></div>
+          <label class="pixel-editor-custom-label">
+            Custom:
+            <input type="color" id="pixelEditorCustomColor" value="#7f868d">
+          </label>
+        </div>
+      </div>
+      <div class="pixel-editor-actions">
+        <button id="pixelEditorReset" type="button" class="pixel-editor-reset-btn">Reset</button>
+        <button id="pixelEditorCancel" type="button" class="pixel-editor-cancel-btn">Cancel</button>
+        <button id="pixelEditorSave" type="button" class="pixel-editor-save-btn">Save</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="game.js"></script>
 </body>
