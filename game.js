@@ -102,6 +102,15 @@ const githubTokenExchangeUrl = resolveGitHubTokenExchangeUrl(
   window.VIBE_GITHUB_TOKEN_EXCHANGE_URL,
 );
 const githubAuthUnavailableMessage = getGitHubAuthUnavailableMessage();
+const pixelEditorEl = document.getElementById("pixelEditor");
+const pixelEditorTitleEl = document.getElementById("pixelEditorTitle");
+const pixelEditorCanvasEl = document.getElementById("pixelEditorCanvas");
+const pixelEditorPaletteEl = document.getElementById("pixelEditorPalette");
+const pixelEditorCurrentColorEl = document.getElementById("pixelEditorCurrentColor");
+const pixelEditorCustomColorEl = document.getElementById("pixelEditorCustomColor");
+const pixelEditorSaveBtn = document.getElementById("pixelEditorSave");
+const pixelEditorCancelBtn = document.getElementById("pixelEditorCancel");
+const pixelEditorResetBtn = document.getElementById("pixelEditorReset");
 
 const world = buildWorld();
 const player = {
@@ -127,6 +136,37 @@ let cameraScrollTop = 0;
 let tickIntervalMultiplier = DEFAULT_TICK_INTERVAL_MULTIPLIER;
 let isGitHubAuthLoading = false;
 
+const PIXEL_EDITOR_ZOOM = 10;
+const PIXEL_EDITOR_TILE_SIZE = 32;
+const PIXEL_EDITOR_PALETTE_COLORS = [
+  "#000000", "#444444", "#888888", "#cccccc", "#ffffff",
+  "#7f868d", "#4f4f4f", "#808080", "#565656", "#9f7746",
+  "#835e35", "#c8a870", "#4f9ce5", "#e8f2ff", "#2270c0",
+  "#4a3c13", "#66e8ff", "#baf6ff", "#2c1405", "#ff5f1f",
+  "#9857d8", "#2ea55f", "#d86a1f", "#f4cb3e", "#fff3ae",
+  "#8f6f00", "#e1c899", "#2e2e2e", "#f2efe7", "transparent",
+];
+
+const TOOL_TILE_TYPE_MAP = {
+  stone: TileType.STONE,
+  soil: TileType.SOIL,
+  water: TileType.WATER,
+  rock: TileType.ROCK,
+  diamond: TileType.DIAMOND,
+  lava: TileType.LAVA,
+  monsterH: TileType.MONSTER_H,
+  monsterV: TileType.MONSTER_V,
+  monsterWander: TileType.MONSTER_WANDER,
+};
+
+const customTileCanvases = new Map();
+
+let pixelEditorActiveTileType = null;
+let pixelEditorEditCanvas = null;
+let pixelEditorEditCtx = null;
+let pixelEditorSelectedColor = "#7f868d";
+let pixelEditorIsPainting = false;
+
 const gameContext = {
   githubAuth: null,
 };
@@ -138,6 +178,7 @@ canvas.addEventListener("mousemove", onMouseMove);
 window.addEventListener("mouseup", onMouseUp);
 canvas.addEventListener("mouseleave", onMouseLeave);
 canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+canvas.addEventListener("dblclick", onCanvasDoubleClick);
 toolsEl.addEventListener("click", onToolClick);
 playAgainBtn.addEventListener("click", resetGame);
 playBtn.addEventListener("click", startPlay);
@@ -150,8 +191,21 @@ new ResizeObserver(onMapResize).observe(mapResizeEl);
 edgeControlsEl.style.width = `${canvas.width}px`;
 edgeControlsEl.style.height = `${canvas.height}px`;
 
+pixelEditorSaveBtn.addEventListener("click", savePixelEditor);
+pixelEditorCancelBtn.addEventListener("click", closePixelEditor);
+pixelEditorResetBtn.addEventListener("click", resetPixelEditor);
+pixelEditorCanvasEl.addEventListener("mousedown", onPixelEditorMouseDown);
+pixelEditorCanvasEl.addEventListener("mousemove", onPixelEditorMouseMove);
+pixelEditorCanvasEl.addEventListener("mouseup", onPixelEditorPaintEnd);
+pixelEditorCanvasEl.addEventListener("mouseleave", onPixelEditorPaintEnd);
+pixelEditorCustomColorEl.addEventListener("input", onPixelEditorCustomColorChange);
+
+initPixelEditorPalette();
+
 void initializeGitHubAuth();
 updateHud();
+updateToolPreviews();
+scheduleToolPreviewsOnImageLoad();
 requestAnimationFrame(loop);
 
 function loop() {
@@ -350,6 +404,329 @@ function onMouseUp() {
 
 function onMouseLeave() {
   isMousePouring = false;
+}
+
+function onCanvasDoubleClick(event) {
+  if (appMode !== "edit") {
+    return;
+  }
+
+  const point = getMouseTile(event);
+  if (!point) {
+    return;
+  }
+
+  const tile = world[point.y][point.x];
+  if (!tile || tile.type === TileType.EMPTY) {
+    return;
+  }
+
+  openPixelEditor(tile.type);
+}
+
+function getTileTypeName(tileType) {
+  const names = {
+    [TileType.STONE]: "Stone",
+    [TileType.SOIL]: "Soil",
+    [TileType.WATER]: "Water",
+    [TileType.ROCK]: "Rock",
+    [TileType.DIAMOND]: "Diamond",
+    [TileType.LAVA]: "Lava",
+    [TileType.MONSTER_H]: "Monster ↔",
+    [TileType.MONSTER_V]: "Monster ↕",
+    [TileType.MONSTER_WANDER]: "Monster ?",
+    [TileType.GOAL]: "Goal",
+    [TileType.EMPTY]: "Empty",
+  };
+  return names[tileType] || tileType;
+}
+
+function captureTileAppearance(tileType) {
+  const offscreen = document.createElement("canvas");
+  offscreen.width = PIXEL_EDITOR_TILE_SIZE;
+  offscreen.height = PIXEL_EDITOR_TILE_SIZE;
+  const offCtx = offscreen.getContext("2d");
+
+  const customCanvas = customTileCanvases.get(tileType);
+  if (customCanvas) {
+    offCtx.drawImage(customCanvas, 0, 0);
+  } else {
+    const tileObject = getTileObject(tileType);
+    const mockTile = { type: tileType, water: WATER_MAX };
+    tileObject.draw({ ctx: offCtx, tile: mockTile, px: 0, py: 0, tileSize: PIXEL_EDITOR_TILE_SIZE });
+  }
+
+  return offscreen;
+}
+
+function openPixelEditor(tileType) {
+  pixelEditorActiveTileType = tileType;
+
+  const srcCanvas = captureTileAppearance(tileType);
+
+  pixelEditorEditCanvas = document.createElement("canvas");
+  pixelEditorEditCanvas.width = PIXEL_EDITOR_TILE_SIZE;
+  pixelEditorEditCanvas.height = PIXEL_EDITOR_TILE_SIZE;
+  pixelEditorEditCtx = pixelEditorEditCanvas.getContext("2d");
+  pixelEditorEditCtx.drawImage(srcCanvas, 0, 0);
+
+  pixelEditorTitleEl.textContent = `Edit Tile: ${getTileTypeName(tileType)}`;
+  pixelEditorEl.classList.remove("hidden");
+
+  renderPixelEditorView();
+}
+
+function closePixelEditor() {
+  pixelEditorEl.classList.add("hidden");
+  pixelEditorActiveTileType = null;
+  pixelEditorEditCanvas = null;
+  pixelEditorEditCtx = null;
+  pixelEditorIsPainting = false;
+}
+
+function resetPixelEditor() {
+  if (!pixelEditorActiveTileType) {
+    return;
+  }
+
+  const freshCanvas = document.createElement("canvas");
+  freshCanvas.width = PIXEL_EDITOR_TILE_SIZE;
+  freshCanvas.height = PIXEL_EDITOR_TILE_SIZE;
+  const freshCtx = freshCanvas.getContext("2d");
+  const tileObject = getTileObject(pixelEditorActiveTileType);
+  const mockTile = { type: pixelEditorActiveTileType, water: WATER_MAX };
+  tileObject.draw({ ctx: freshCtx, tile: mockTile, px: 0, py: 0, tileSize: PIXEL_EDITOR_TILE_SIZE });
+
+  pixelEditorEditCtx.clearRect(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+  pixelEditorEditCtx.drawImage(freshCanvas, 0, 0);
+
+  renderPixelEditorView();
+}
+
+function savePixelEditor() {
+  if (!pixelEditorActiveTileType || !pixelEditorEditCanvas) {
+    return;
+  }
+
+  const savedCanvas = document.createElement("canvas");
+  savedCanvas.width = PIXEL_EDITOR_TILE_SIZE;
+  savedCanvas.height = PIXEL_EDITOR_TILE_SIZE;
+  const savedCtx = savedCanvas.getContext("2d");
+  savedCtx.drawImage(pixelEditorEditCanvas, 0, 0);
+  customTileCanvases.set(pixelEditorActiveTileType, savedCanvas);
+
+  updateToolPreviews();
+  closePixelEditor();
+}
+
+function renderPixelEditorView() {
+  if (!pixelEditorEditCtx) {
+    return;
+  }
+
+  const editorCtx = pixelEditorCanvasEl.getContext("2d");
+  const imageData = pixelEditorEditCtx.getImageData(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+
+  editorCtx.clearRect(0, 0, pixelEditorCanvasEl.width, pixelEditorCanvasEl.height);
+
+  for (let py = 0; py < PIXEL_EDITOR_TILE_SIZE; py += 1) {
+    for (let px = 0; px < PIXEL_EDITOR_TILE_SIZE; px += 1) {
+      const idx = (py * PIXEL_EDITOR_TILE_SIZE + px) * 4;
+      const r = imageData.data[idx];
+      const g = imageData.data[idx + 1];
+      const b = imageData.data[idx + 2];
+      const a = imageData.data[idx + 3];
+
+      const screenX = px * PIXEL_EDITOR_ZOOM;
+      const screenY = py * PIXEL_EDITOR_ZOOM;
+
+      if (a < 255) {
+        const checker = (Math.floor(px / 2) + Math.floor(py / 2)) % 2 === 0;
+        editorCtx.fillStyle = checker ? "#bbb" : "#888";
+        editorCtx.fillRect(screenX, screenY, PIXEL_EDITOR_ZOOM, PIXEL_EDITOR_ZOOM);
+      }
+
+      if (a > 0) {
+        editorCtx.fillStyle = `rgba(${r},${g},${b},${a / 255})`;
+        editorCtx.fillRect(screenX, screenY, PIXEL_EDITOR_ZOOM, PIXEL_EDITOR_ZOOM);
+      }
+    }
+  }
+
+  editorCtx.strokeStyle = "rgba(0,0,0,0.15)";
+  editorCtx.lineWidth = 0.5;
+  for (let i = 0; i <= PIXEL_EDITOR_TILE_SIZE; i += 1) {
+    const pos = i * PIXEL_EDITOR_ZOOM;
+    editorCtx.beginPath();
+    editorCtx.moveTo(pos, 0);
+    editorCtx.lineTo(pos, pixelEditorCanvasEl.height);
+    editorCtx.stroke();
+    editorCtx.beginPath();
+    editorCtx.moveTo(0, pos);
+    editorCtx.lineTo(pixelEditorCanvasEl.width, pos);
+    editorCtx.stroke();
+  }
+}
+
+function getPixelEditorCoords(event) {
+  const rect = pixelEditorCanvasEl.getBoundingClientRect();
+  const scaleX = pixelEditorCanvasEl.width / rect.width;
+  const scaleY = pixelEditorCanvasEl.height / rect.height;
+  const screenX = (event.clientX - rect.left) * scaleX;
+  const screenY = (event.clientY - rect.top) * scaleY;
+  const px = Math.floor(screenX / PIXEL_EDITOR_ZOOM);
+  const py = Math.floor(screenY / PIXEL_EDITOR_ZOOM);
+
+  if (px < 0 || px >= PIXEL_EDITOR_TILE_SIZE || py < 0 || py >= PIXEL_EDITOR_TILE_SIZE) {
+    return null;
+  }
+
+  return { px, py };
+}
+
+function paintPixelEditorPixel(px, py) {
+  if (!pixelEditorEditCtx) {
+    return;
+  }
+
+  if (pixelEditorSelectedColor === "transparent") {
+    pixelEditorEditCtx.clearRect(px, py, 1, 1);
+  } else {
+    pixelEditorEditCtx.fillStyle = pixelEditorSelectedColor;
+    pixelEditorEditCtx.fillRect(px, py, 1, 1);
+  }
+
+  renderPixelEditorView();
+}
+
+function onPixelEditorMouseDown(event) {
+  if (event.button !== 0) {
+    return;
+  }
+
+  pixelEditorIsPainting = true;
+  const coords = getPixelEditorCoords(event);
+  if (coords) {
+    paintPixelEditorPixel(coords.px, coords.py);
+  }
+}
+
+function onPixelEditorMouseMove(event) {
+  if (!pixelEditorIsPainting) {
+    return;
+  }
+
+  const coords = getPixelEditorCoords(event);
+  if (coords) {
+    paintPixelEditorPixel(coords.px, coords.py);
+  }
+}
+
+function onPixelEditorPaintEnd() {
+  pixelEditorIsPainting = false;
+}
+
+function onPixelEditorCustomColorChange() {
+  setPixelEditorColor(pixelEditorCustomColorEl.value);
+}
+
+function setPixelEditorColor(color) {
+  pixelEditorSelectedColor = color;
+  const isTransparent = color === "transparent";
+  if (isTransparent) {
+    pixelEditorCurrentColorEl.style.background = "";
+    pixelEditorCurrentColorEl.style.backgroundImage =
+      "linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%)";
+    pixelEditorCurrentColorEl.style.backgroundSize = "10px 10px";
+    pixelEditorCurrentColorEl.style.backgroundPosition = "0 0,0 5px,5px -5px,-5px 0";
+    pixelEditorCurrentColorEl.style.backgroundColor = "#fff";
+  } else {
+    pixelEditorCurrentColorEl.style.backgroundImage = "";
+    pixelEditorCurrentColorEl.style.backgroundColor = color;
+  }
+
+  const swatches = pixelEditorPaletteEl.querySelectorAll(".palette-color");
+  for (const swatch of swatches) {
+    swatch.classList.toggle("is-selected", swatch.dataset.color === color);
+  }
+}
+
+function initPixelEditorPalette() {
+  for (const color of PIXEL_EDITOR_PALETTE_COLORS) {
+    const swatch = document.createElement("button");
+    swatch.type = "button";
+    swatch.className = "palette-color";
+    swatch.dataset.color = color;
+    swatch.title = color;
+    if (color === "transparent") {
+      swatch.classList.add("transparent-swatch");
+    } else {
+      swatch.style.backgroundColor = color;
+    }
+    swatch.addEventListener("click", () => {
+      setPixelEditorColor(color);
+    });
+    pixelEditorPaletteEl.appendChild(swatch);
+  }
+
+  setPixelEditorColor(pixelEditorSelectedColor);
+}
+
+function updateToolPreviews() {
+  const toolButtons = toolsEl.querySelectorAll("button[data-tool]");
+  for (const button of toolButtons) {
+    const previewCanvas = button.querySelector(".tool-preview");
+    if (!previewCanvas) {
+      continue;
+    }
+
+    const previewCtx = previewCanvas.getContext("2d");
+    const toolName = button.dataset.tool;
+
+    if (toolName === "erase") {
+      previewCtx.clearRect(0, 0, 32, 32);
+      previewCtx.fillStyle = "#f7f7f7";
+      previewCtx.fillRect(0, 0, 32, 32);
+      previewCtx.strokeStyle = "#aaa";
+      previewCtx.lineWidth = 2.5;
+      previewCtx.lineCap = "round";
+      previewCtx.beginPath();
+      previewCtx.moveTo(8, 8);
+      previewCtx.lineTo(24, 24);
+      previewCtx.stroke();
+      previewCtx.beginPath();
+      previewCtx.moveTo(24, 8);
+      previewCtx.lineTo(8, 24);
+      previewCtx.stroke();
+      continue;
+    }
+
+    const tileType = TOOL_TILE_TYPE_MAP[toolName];
+    if (!tileType) {
+      continue;
+    }
+
+    const customCanvas = customTileCanvases.get(tileType);
+    if (customCanvas) {
+      previewCtx.clearRect(0, 0, 32, 32);
+      previewCtx.drawImage(customCanvas, 0, 0, 32, 32);
+      continue;
+    }
+
+    const tileObject = getTileObject(tileType);
+    const mockTile = { type: tileType, water: WATER_MAX };
+    previewCtx.clearRect(0, 0, 32, 32);
+    tileObject.draw({ ctx: previewCtx, tile: mockTile, px: 0, py: 0, tileSize: 32 });
+  }
+}
+
+function scheduleToolPreviewsOnImageLoad() {
+  const imageUrls = ["images/brick.png", "images/diamond.png"];
+  for (const url of imageUrls) {
+    const img = new Image();
+    img.onload = () => updateToolPreviews();
+    img.src = url;
+  }
 }
 
 function getMouseTile(event) {
@@ -1030,6 +1407,13 @@ function drawTile(x, y, tile, applyTransition = true) {
   const transition = applyTransition ? getTileTransitionOffset(tile) : { x: 0, y: 0 };
   const px = x * TILE_SIZE + transition.x;
   const py = y * TILE_SIZE + transition.y;
+
+  const customCanvas = customTileCanvases.get(tile.type);
+  if (customCanvas) {
+    ctx.drawImage(customCanvas, px, py, TILE_SIZE, TILE_SIZE);
+    return;
+  }
+
   const tileObject = getTileObject(tile.type);
   tileObject.draw({
     ctx,
