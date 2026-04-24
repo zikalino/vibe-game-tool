@@ -180,6 +180,7 @@ canvas.addEventListener("mouseleave", onMouseLeave);
 canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 canvas.addEventListener("dblclick", onCanvasDoubleClick);
 toolsEl.addEventListener("click", onToolClick);
+toolsEl.addEventListener("dblclick", onToolDoubleClick);
 playAgainBtn.addEventListener("click", resetGame);
 playBtn.addEventListener("click", startPlay);
 editBtn.addEventListener("click", startEdit);
@@ -316,6 +317,20 @@ function onToolClick(event) {
   }
 
   setSelectedTool(button.dataset.tool);
+}
+
+function onToolDoubleClick(event) {
+  const button = event.target.closest("button[data-tool]");
+  if (!button) {
+    return;
+  }
+
+  const tileType = TOOL_TILE_TYPE_MAP[button.dataset.tool];
+  if (!tileType) {
+    return;
+  }
+
+  openPixelEditor(tileType);
 }
 
 function onTickIntervalChange() {
@@ -724,8 +739,12 @@ function scheduleToolPreviewsOnImageLoad() {
   const imageUrls = ["images/brick.png", "images/diamond.png"];
   for (const url of imageUrls) {
     const img = new Image();
-    img.onload = () => updateToolPreviews();
     img.src = url;
+    if (img.complete) {
+      updateToolPreviews();
+    } else {
+      img.onload = () => updateToolPreviews();
+    }
   }
 }
 

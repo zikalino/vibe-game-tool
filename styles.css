@@ -218,8 +218,8 @@ body.play-mode .github-auth-status {
 }
 
 .tools {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   margin: 12px 0;
 }
@@ -227,11 +227,12 @@ body.play-mode .github-auth-status {
 .tool {
   border: 2px solid #7f8ca1;
   border-radius: 6px;
-  padding: 2px;
+  padding: 4px;
   background: #e9f1fb;
   cursor: pointer;
-  width: 44px;
-  height: 44px;
+  aspect-ratio: 1;
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -244,8 +245,9 @@ body.play-mode .github-auth-status {
 }
 
 .tool-preview {
-  width: 36px;
-  height: 36px;
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
   image-rendering: pixelated;
   border-radius: 3px;
   display: block;
