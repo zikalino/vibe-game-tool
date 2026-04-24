@@ -1,0 +1,143 @@
+name: Convert Image URLs to Base64
+
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+
+# Minimal permissions: write issues so we can update issue/comment bodies.
+permissions:
+  issues: write
+
+jobs:
+  convert-images:
+    # Skip events triggered by this action itself to avoid re-running after
+    # the issue/comment body is updated with base64-encoded images.
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Convert image URLs to base64 inline images
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Maximum image size accepted (5 MB). Larger images are skipped to
+            // avoid memory exhaustion and GitHub's issue-body size limit.
+            const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+            // Abort any single image download that takes longer than 30 seconds.
+            const FETCH_TIMEOUT_MS = 30_000;
+
+            /**
+             * Fetches an image URL and returns its MIME type and base64-encoded data.
+             * Follows redirects automatically via the `redirect: 'follow'` option.
+             * Rejects responses whose Content-Type is not an image/* type or whose
+             * Content-Length (when declared) exceeds MAX_IMAGE_BYTES.
+             */
+            async function fetchImageAsBase64(url) {
+              const response = await fetch(url, {
+                headers: { 'User-Agent': 'GitHub-Actions-Image-Converter' },
+                redirect: 'follow',
+                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+              });
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status} ${response.statusText}`);
+              }
+
+              const contentType = response.headers.get('content-type') || '';
+              const mimeType = contentType.split(';')[0].trim();
+              if (!mimeType.startsWith('image/')) {
+                throw new Error(`Unexpected content-type "${mimeType}" — not an image`);
+              }
+
+              const contentLength = response.headers.get('content-length');
+              if (contentLength && parseInt(contentLength, 10) > MAX_IMAGE_BYTES) {
+                throw new Error(`Image too large (${contentLength} bytes > ${MAX_IMAGE_BYTES})`);
+              }
+
+              const arrayBuffer = await response.arrayBuffer();
+              if (arrayBuffer.byteLength > MAX_IMAGE_BYTES) {
+                throw new Error(`Image too large (${arrayBuffer.byteLength} bytes > ${MAX_IMAGE_BYTES})`);
+              }
+
+              const base64 = Buffer.from(arrayBuffer).toString('base64');
+              return { base64, mimeType };
+            }
+
+            /**
+             * Scans a Markdown body for image references of the form ![alt](url)
+             * where the URL is an http/https link (not already a data URI), downloads
+             * each image, and replaces all occurrences of that reference with a base64
+             * data URI so that AI tools (e.g. GitHub Copilot) can read the image
+             * content directly.
+             *
+             * Duplicate references (same full ![alt](url) token) are deduplicated so
+             * each unique image is fetched only once.
+             *
+             * Returns the updated body and a flag indicating whether any changes
+             * were made.
+             */
+            async function convertImagesToBase64(body) {
+              if (!body) return { body, changed: false };
+
+              // Matches ![alt text](https://...) — skips data: URIs automatically
+              // because the URL must start with http:// or https://.
+              const imagePattern = /!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g;
+              const matches = [...body.matchAll(imagePattern)];
+
+              let newBody = body;
+              let changed = false;
+              const processed = new Set();
+
+              for (const match of matches) {
+                const [fullMatch, altText, imageUrl] = match;
+                // Skip identical tokens already handled in this run.
+                if (processed.has(fullMatch)) continue;
+                processed.add(fullMatch);
+
+                try {
+                  core.info(`Downloading image: ${imageUrl}`);
+                  const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
+                  const dataUrl = `data:${mimeType};base64,${base64}`;
+                  // replaceAll ensures every occurrence of this exact token is updated.
+                  newBody = newBody.replaceAll(fullMatch, `![${altText}](${dataUrl})`);
+                  changed = true;
+                  core.info(`Converted: ${imageUrl} → data:${mimeType};base64,[...]`);
+                } catch (err) {
+                  core.warning(`Could not convert image ${imageUrl}: ${err.message}`);
+                }
+              }
+
+              return { body: newBody, changed };
+            }
+
+            // ── Issue body ──────────────────────────────────────────────────────
+            if (context.eventName === 'issues') {
+              const issue = context.payload.issue;
+              const { body, changed } = await convertImagesToBase64(issue.body);
+              if (changed) {
+                await github.rest.issues.update({
+                  ...context.repo,
+                  issue_number: issue.number,
+                  body,
+                });
+                core.info(`Updated issue #${issue.number} with base64-encoded images.`);
+              } else {
+                core.info(`No plain image URLs found in issue #${issue.number} — nothing to update.`);
+              }
+
+            // ── Issue comment body ──────────────────────────────────────────────
+            } else if (context.eventName === 'issue_comment') {
+              const comment = context.payload.comment;
+              const { body, changed } = await convertImagesToBase64(comment.body);
+              if (changed) {
+                await github.rest.issues.updateComment({
+                  ...context.repo,
+                  comment_id: comment.id,
+                  body,
+                });
+                core.info(`Updated comment #${comment.id} with base64-encoded images.`);
+              } else {
+                core.info(`No plain image URLs found in comment #${comment.id} — nothing to update.`);
+              }
+            }
