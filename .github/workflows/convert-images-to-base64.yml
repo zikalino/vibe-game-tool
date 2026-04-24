@@ -66,13 +66,13 @@ jobs:
 
             /**
              * Scans a Markdown body for image references of the form ![alt](url)
-             * where the URL is an http/https link (not already a data URI), downloads
-             * each image, and replaces all occurrences of that reference with a base64
-             * data URI so that AI tools (e.g. GitHub Copilot) can read the image
-             * content directly.
+             * or HTML <img src="url"> tags where the URL is an http/https link (not
+             * already a data URI), downloads each image, and replaces all occurrences
+             * of that reference with a base64 data URI so that AI tools (e.g. GitHub
+             * Copilot) can read the image content directly.
              *
-             * Duplicate references (same full ![alt](url) token) are deduplicated so
-             * each unique image is fetched only once.
+             * Duplicate references (same full token) are deduplicated so each unique
+             * image is fetched only once.
              *
              * Returns the updated body and a flag indicating whether any changes
              * were made.
@@ -83,13 +83,17 @@ jobs:
               // Matches ![alt text](https://...) — skips data: URIs automatically
               // because the URL must start with http:// or https://.
               const imagePattern = /!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g;
-              const matches = [...body.matchAll(imagePattern)];
+              // Matches <img src="https://..."> or <img src='https://...'> HTML tags.
+              const imgTagPattern = /<img\s[^>]*?src=["'](https?:\/\/[^"'>\s]+)["'][^>]*?>/gi;
+
+              const markdownMatches = [...body.matchAll(imagePattern)];
+              const imgTagMatches = [...body.matchAll(imgTagPattern)];
 
               let newBody = body;
               let changed = false;
               const processed = new Set();
 
-              for (const match of matches) {
+              for (const match of markdownMatches) {
                 const [fullMatch, altText, imageUrl] = match;
                 // Skip identical tokens already handled in this run.
                 if (processed.has(fullMatch)) continue;
@@ -101,6 +105,27 @@ jobs:
                   const dataUrl = `data:${mimeType};base64,${base64}`;
                   // replaceAll ensures every occurrence of this exact token is updated.
                   newBody = newBody.replaceAll(fullMatch, `![${altText}](${dataUrl})`);
+                  changed = true;
+                  core.info(`Converted: ${imageUrl} → data:${mimeType};base64,[...]`);
+                } catch (err) {
+                  core.warning(`Could not convert image ${imageUrl}: ${err.message}`);
+                }
+              }
+
+              for (const match of imgTagMatches) {
+                const [fullMatch, imageUrl] = match;
+                // Skip identical tokens already handled in this run.
+                if (processed.has(fullMatch)) continue;
+                processed.add(fullMatch);
+
+                try {
+                  core.info(`Downloading image: ${imageUrl}`);
+                  const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
+                  const dataUrl = `data:${mimeType};base64,${base64}`;
+                  // Replace the src URL inside the tag, keeping all other attributes.
+                  const newTag = fullMatch.replaceAll(imageUrl, dataUrl);
+                  // replaceAll ensures every occurrence of this exact token is updated.
+                  newBody = newBody.replaceAll(fullMatch, newTag);
                   changed = true;
                   core.info(`Converted: ${imageUrl} → data:${mimeType};base64,[...]`);
                 } catch (err) {
@@ -123,7 +148,7 @@ jobs:
                 });
                 core.info(`Updated issue #${issue.number} with base64-encoded images.`);
               } else {
-                core.info(`No plain image URLs found in issue #${issue.number} — nothing to update.`);
+                core.info(`No image URLs found in issue #${issue.number} — nothing to update.`);
               }
 
             // ── Issue comment body ──────────────────────────────────────────────
@@ -138,6 +163,6 @@ jobs:
                 });
                 core.info(`Updated comment #${comment.id} with base64-encoded images.`);
               } else {
-                core.info(`No plain image URLs found in comment #${comment.id} — nothing to update.`);
+                core.info(`No image URLs found in comment #${comment.id} — nothing to update.`);
               }
             }
