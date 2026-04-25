@@ -494,6 +494,9 @@ function openPixelEditor(tileType) {
   pixelEditorTitleEl.textContent = `Edit Tile: ${getTileTypeName(tileType)}`;
   pixelEditorEl.classList.remove("hidden");
 
+  setPixelEditorTool("draw");
+  setPixelEditorPenSize(1);
+
   renderPixelEditorView();
 }
 
@@ -814,7 +817,9 @@ function setPixelEditorTool(tool) {
   pixelEditorActiveTool = tool;
   const toolBtns = pixelEditorToolboxEl.querySelectorAll(".px-tool");
   for (const btn of toolBtns) {
-    btn.classList.toggle("is-active", btn.dataset.pxTool === tool);
+    const isActive = btn.dataset.pxTool === tool;
+    btn.classList.toggle("is-active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
   }
   pixelEditorCanvasEl.style.cursor = tool === "picker" ? "cell" : "crosshair";
 }
@@ -823,7 +828,9 @@ function setPixelEditorPenSize(size) {
   pixelEditorPenSize = size;
   const sizeBtns = pixelEditorToolboxEl.querySelectorAll(".px-pen-size");
   for (const btn of sizeBtns) {
-    btn.classList.toggle("is-active", Number(btn.dataset.penSize) === size);
+    const isActive = Number(btn.dataset.penSize) === size;
+    btn.classList.toggle("is-active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
   }
 }
 
