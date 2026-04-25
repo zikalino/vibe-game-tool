@@ -90,6 +90,7 @@ const githubAuthBtn = document.getElementById("githubAuthBtn");
 const githubAuthStatusEl = document.getElementById("githubAuthStatus");
 const exitPlayBtn = document.getElementById("exitPlayBtn");
 const edgeControlsEl = document.getElementById("edgeControls");
+const touchControlsEl = document.getElementById("touchControls");
 const mapResizeEl = document.querySelector(".map-resize");
 const gameWrapEl = document.querySelector(".game-wrap");
 const githubClientMetaEl = document.querySelector('meta[name="github-client-id"]');
@@ -192,6 +193,7 @@ tickIntervalSelectEl.addEventListener("change", onTickIntervalChange);
 githubAuthBtn.addEventListener("click", onGitHubAuthClick);
 exitPlayBtn.addEventListener("click", startEdit);
 edgeControlsEl.addEventListener("click", onExpandEdgeClick);
+touchControlsEl.addEventListener("pointerdown", onTouchControlPointerDown);
 new ResizeObserver(onMapResize).observe(mapResizeEl);
 edgeControlsEl.style.width = `${canvas.width}px`;
 edgeControlsEl.style.height = `${canvas.height}px`;
@@ -1210,6 +1212,9 @@ function startPlay() {
   editBtn.classList.remove("hidden");
   exitPlayBtn.classList.remove("hidden");
   edgeControlsEl.classList.add("hidden");
+  if (hasTouchInput()) {
+    touchControlsEl.classList.remove("hidden");
+  }
   updateHud();
 }
 
@@ -1238,6 +1243,7 @@ function startEdit() {
   editBtn.classList.add("hidden");
   exitPlayBtn.classList.add("hidden");
   edgeControlsEl.classList.remove("hidden");
+  touchControlsEl.classList.add("hidden");
   updateHud();
 }
 
@@ -1556,6 +1562,34 @@ function refreshGitHubAuthUi(errorMessage = "") {
   githubAuthBtn.disabled = false;
   if (githubAuthStatusEl) {
     githubAuthStatusEl.textContent = errorMessage || "GitHub: Not connected.";
+  }
+}
+
+function hasTouchInput() {
+  return navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches;
+}
+
+function onTouchControlPointerDown(event) {
+  const btn = event.target.closest("[data-touch-action]");
+  if (!btn) {
+    return;
+  }
+  event.preventDefault();
+  const action = btn.dataset.touchAction;
+  if (action === "up") {
+    if (appMode === "play" && gameState === "playing") tryMove(0, -1);
+  } else if (action === "down") {
+    if (appMode === "play" && gameState === "playing") tryMove(0, 1);
+  } else if (action === "left") {
+    if (appMode === "play" && gameState === "playing") tryMove(-1, 0);
+  } else if (action === "right") {
+    if (appMode === "play" && gameState === "playing") tryMove(1, 0);
+  } else if (action === "dig") {
+    if (appMode === "play" && gameState === "playing") breakSoil();
+  } else if (action === "pour") {
+    if (appMode === "play" && gameState === "playing") pourWaterForward();
+  } else if (action === "reset") {
+    resetGame();
   }
 }
 

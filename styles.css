@@ -591,3 +591,66 @@ canvas {
   background: #1a6aaa;
   border-color: #5eb8ff;
 }
+
+/* Touch controls overlay (shown in play mode on touch devices) */
+.touch-controls {
+  position: fixed;
+  bottom: 24px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 24px;
+  z-index: 14;
+  pointer-events: none;
+}
+
+.touch-dpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+.touch-dpad-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.touch-dpad-center {
+  width: 56px;
+  height: 56px;
+}
+
+.touch-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.touch-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(31, 64, 98, 0.85);
+  color: #fff;
+  font-size: 1.4rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  padding: 0;
+}
+
+.touch-btn:active {
+  background: rgba(20, 45, 68, 0.95);
+  border-color: rgba(255, 255, 255, 0.6);
+}
