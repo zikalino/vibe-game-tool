@@ -176,6 +176,7 @@ const gameContext = {
 window.vibeGameContext = gameContext;
 
 window.addEventListener("keydown", onKeyDown);
+window.addEventListener("paste", onPaste);
 canvas.addEventListener("mousedown", onMouseDown);
 canvas.addEventListener("mousemove", onMouseMove);
 window.addEventListener("mouseup", onMouseUp);
@@ -920,6 +921,41 @@ function onPixelEditorPaintEnd(event) {
 
 function onPixelEditorCustomColorChange() {
   setPixelEditorColor(pixelEditorCustomColorEl.value);
+}
+
+function onPaste(event) {
+  if (!pixelEditorEditCtx) {
+    return;
+  }
+
+  const items = event.clipboardData?.items;
+  if (!items) {
+    return;
+  }
+
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      event.preventDefault();
+      const file = item.getAsFile();
+      if (!file) {
+        break;
+      }
+
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        pixelEditorEditCtx.clearRect(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+        pixelEditorEditCtx.drawImage(img, 0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+        URL.revokeObjectURL(url);
+        renderPixelEditorView();
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+      break;
+    }
+  }
 }
 
 function setPixelEditorColor(color) {
