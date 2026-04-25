@@ -80,8 +80,6 @@ const waterConfig = {
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const diamondCountEl = document.getElementById("diamondCount");
-const gameStateEl = document.getElementById("gameState");
 const toolsEl = document.getElementById("tools");
 const winOverlayEl = document.getElementById("winOverlay");
 const playAgainBtn = document.getElementById("playAgainBtn");
@@ -284,7 +282,6 @@ function setGameState(nextState, reason) {
   }
 
   gameState = nextState;
-  gameStateEl.textContent = reason;
 
   if (nextState === "won") {
     winOverlayEl.classList.remove("hidden");
@@ -1230,17 +1227,6 @@ function cloneWorld(src) {
 }
 
 function updateHud() {
-  diamondCountEl.textContent = `${collectedDiamonds} / ${DIAMOND_GOAL}`;
-
-  if (appMode === "edit") {
-    gameStateEl.textContent = "Editing";
-  } else if (gameState === "playing") {
-    if (collectedDiamonds >= DIAMOND_GOAL) {
-      gameStateEl.textContent = "Goal unlocked. Reach the yellow tile.";
-    } else {
-      gameStateEl.textContent = "Playing";
-    }
-  }
 }
 
 async function initializeGitHubAuth() {

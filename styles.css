@@ -53,74 +53,6 @@ p {
   line-height: 1.35;
 }
 
-.legend {
-  display: grid;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.legend span {
-  display: inline-block;
-  width: fit-content;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  font-weight: 700;
-}
-
-.stone {
-  background: #7f868d;
-  color: #111;
-}
-
-.soil {
-  background: #9f7746;
-  color: #111;
-}
-
-.water {
-  background: #4f9ce5;
-  color: #fff;
-}
-
-.rock {
-  background: #565656;
-  color: #fff;
-}
-
-.diamond {
-  background: #66e8ff;
-  color: #082026;
-}
-
-.lava {
-  background: #ff5f1f;
-  color: #fff;
-}
-
-.monster-h {
-  background: #9857d8;
-  color: #fff;
-}
-
-.monster-v {
-  background: #2ea55f;
-  color: #fff;
-}
-
-.monster-w {
-  background: #d86a1f;
-  color: #fff;
-}
-
-.goal {
-  background: #f4cb3e;
-  color: #3d2e00;
-}
-
-.empty {
-  background: #f7f7f7;
-}
 
 .hidden {
   display: none;
@@ -253,21 +185,6 @@ body.play-mode .github-auth-status {
   display: block;
 }
 
-.status {
-  margin-top: 4px;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #c4d2e1;
-  background: #f4f9ff;
-}
-
-.status p {
-  margin: 0 0 6px;
-}
-
-.status p:last-child {
-  margin-bottom: 0;
-}
 
 .game-wrap {
   position: relative;
