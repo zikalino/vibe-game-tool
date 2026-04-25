@@ -601,3 +601,76 @@ canvas {
 .pixel-editor-reset-btn:hover {
   background: #1e3a5e;
 }
+
+.pixel-editor-toolbox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 36px;
+  align-items: center;
+}
+
+.px-tool {
+  width: 32px;
+  height: 32px;
+  border: 2px solid #3a6088;
+  border-radius: 6px;
+  background: #243850;
+  color: #c0d8f0;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.px-tool:hover {
+  background: #2e4f70;
+  border-color: #5090c0;
+}
+
+.px-tool.is-active {
+  background: #1a6aaa;
+  border-color: #5eb8ff;
+  box-shadow: 0 0 0 1px #5eb8ff;
+}
+
+.px-tool-separator {
+  width: 24px;
+  height: 1px;
+  background: #3a6088;
+  margin: 4px 0;
+}
+
+.px-pen-size-label {
+  font-size: 0.65rem;
+  color: #8ab0d0;
+  text-align: center;
+  margin-top: 2px;
+}
+
+.px-pen-size {
+  width: 28px;
+  height: 24px;
+  border: 2px solid #3a6088;
+  border-radius: 4px;
+  background: #243850;
+  color: #c0d8f0;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0;
+  line-height: 1;
+}
+
+.px-pen-size:hover {
+  background: #2e4f70;
+  border-color: #5090c0;
+}
+
+.px-pen-size.is-active {
+  background: #1a6aaa;
+  border-color: #5eb8ff;
+}

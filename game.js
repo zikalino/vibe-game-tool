@@ -111,6 +111,7 @@ const pixelEditorCustomColorEl = document.getElementById("pixelEditorCustomColor
 const pixelEditorSaveBtn = document.getElementById("pixelEditorSave");
 const pixelEditorCancelBtn = document.getElementById("pixelEditorCancel");
 const pixelEditorResetBtn = document.getElementById("pixelEditorReset");
+const pixelEditorToolboxEl = document.getElementById("pixelEditorToolbox");
 
 const world = buildWorld();
 const player = {
@@ -166,6 +167,10 @@ let pixelEditorEditCanvas = null;
 let pixelEditorEditCtx = null;
 let pixelEditorSelectedColor = "#7f868d";
 let pixelEditorIsPainting = false;
+let pixelEditorActiveTool = "draw";
+let pixelEditorPenSize = 1;
+let pixelEditorShapeStart = null;
+let pixelEditorShapeSnapshot = null;
 
 const gameContext = {
   githubAuth: null,
@@ -200,6 +205,7 @@ pixelEditorCanvasEl.addEventListener("mousemove", onPixelEditorMouseMove);
 pixelEditorCanvasEl.addEventListener("mouseup", onPixelEditorPaintEnd);
 pixelEditorCanvasEl.addEventListener("mouseleave", onPixelEditorPaintEnd);
 pixelEditorCustomColorEl.addEventListener("input", onPixelEditorCustomColorChange);
+pixelEditorToolboxEl.addEventListener("click", onPixelEditorToolboxClick);
 
 initPixelEditorPalette();
 
@@ -497,6 +503,8 @@ function closePixelEditor() {
   pixelEditorEditCanvas = null;
   pixelEditorEditCtx = null;
   pixelEditorIsPainting = false;
+  pixelEditorShapeStart = null;
+  pixelEditorShapeSnapshot = null;
 }
 
 function resetPixelEditor() {
@@ -599,19 +607,236 @@ function getPixelEditorCoords(event) {
   return { px, py };
 }
 
-function paintPixelEditorPixel(px, py) {
+function paintPixelEditorPixelRaw(px, py) {
   if (!pixelEditorEditCtx) {
     return;
   }
 
+  if (px < 0 || px >= PIXEL_EDITOR_TILE_SIZE || py < 0 || py >= PIXEL_EDITOR_TILE_SIZE) {
+    return;
+  }
+
+  // Pen brush is a square centered on the target pixel.
+  const half = Math.floor(pixelEditorPenSize / 2);
+  const startX = Math.max(0, px - half);
+  const startY = Math.max(0, py - half);
+  const endX = Math.min(PIXEL_EDITOR_TILE_SIZE, px - half + pixelEditorPenSize);
+  const endY = Math.min(PIXEL_EDITOR_TILE_SIZE, py - half + pixelEditorPenSize);
+  const w = endX - startX;
+  const h = endY - startY;
+
+  if (w <= 0 || h <= 0) {
+    return;
+  }
+
   if (pixelEditorSelectedColor === "transparent") {
-    pixelEditorEditCtx.clearRect(px, py, 1, 1);
+    pixelEditorEditCtx.clearRect(startX, startY, w, h);
   } else {
     pixelEditorEditCtx.fillStyle = pixelEditorSelectedColor;
-    pixelEditorEditCtx.fillRect(px, py, 1, 1);
+    pixelEditorEditCtx.fillRect(startX, startY, w, h);
+  }
+}
+
+function paintPixelEditorPixel(px, py) {
+  paintPixelEditorPixelRaw(px, py);
+  renderPixelEditorView();
+}
+
+function floodFill(startPx, startPy) {
+  if (!pixelEditorEditCtx) {
+    return;
+  }
+
+  const imageData = pixelEditorEditCtx.getImageData(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+  const data = imageData.data;
+  const idx = (startPy * PIXEL_EDITOR_TILE_SIZE + startPx) * 4;
+  const targetR = data[idx];
+  const targetG = data[idx + 1];
+  const targetB = data[idx + 2];
+  const targetA = data[idx + 3];
+
+  let fillR, fillG, fillB, fillA;
+  if (pixelEditorSelectedColor === "transparent") {
+    fillR = 0; fillG = 0; fillB = 0; fillA = 0;
+  } else {
+    const hex = pixelEditorSelectedColor.replace("#", "");
+    fillR = parseInt(hex.slice(0, 2), 16);
+    fillG = parseInt(hex.slice(2, 4), 16);
+    fillB = parseInt(hex.slice(4, 6), 16);
+    fillA = 255;
+  }
+
+  if (fillR === targetR && fillG === targetG && fillB === targetB && fillA === targetA) {
+    return;
+  }
+
+  const size = PIXEL_EDITOR_TILE_SIZE;
+  const stack = [[startPx, startPy]];
+  const visited = new Uint8Array(size * size);
+
+  while (stack.length > 0) {
+    const [x, y] = stack.pop();
+    if (x < 0 || x >= size || y < 0 || y >= size) {
+      continue;
+    }
+    const key = y * size + x;
+    if (visited[key]) {
+      continue;
+    }
+    const i = key * 4;
+    if (data[i] !== targetR || data[i + 1] !== targetG || data[i + 2] !== targetB || data[i + 3] !== targetA) {
+      continue;
+    }
+    visited[key] = 1;
+    data[i] = fillR;
+    data[i + 1] = fillG;
+    data[i + 2] = fillB;
+    data[i + 3] = fillA;
+    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+
+  pixelEditorEditCtx.putImageData(imageData, 0, 0);
+  renderPixelEditorView();
+}
+
+function pickEditorColor(px, py) {
+  if (!pixelEditorEditCtx) {
+    return;
+  }
+
+  const imageData = pixelEditorEditCtx.getImageData(px, py, 1, 1);
+  const [r, g, b, a] = imageData.data;
+  if (a === 0) {
+    setPixelEditorColor("transparent");
+  } else {
+    const hex = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+    setPixelEditorColor(hex);
+    pixelEditorCustomColorEl.value = hex;
+  }
+
+  setPixelEditorTool("draw");
+}
+
+// Bresenham's line algorithm.
+function drawEditorLine(x0, y0, x1, y1) {
+  let dx = Math.abs(x1 - x0);
+  let dy = Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy;
+
+  for (;;) {
+    paintPixelEditorPixelRaw(x0, y0);
+    if (x0 === x1 && y0 === y1) {
+      break;
+    }
+    const e2 = 2 * err;
+    if (e2 > -dy) {
+      err -= dy;
+      x0 += sx;
+    }
+    if (e2 < dx) {
+      err += dx;
+      y0 += sy;
+    }
   }
 
   renderPixelEditorView();
+}
+
+// Draws the outline of an axis-aligned rectangle.
+function drawEditorRect(x0, y0, x1, y1) {
+  const minX = Math.min(x0, x1);
+  const maxX = Math.max(x0, x1);
+  const minY = Math.min(y0, y1);
+  const maxY = Math.max(y0, y1);
+
+  for (let x = minX; x <= maxX; x++) {
+    paintPixelEditorPixelRaw(x, minY);
+    paintPixelEditorPixelRaw(x, maxY);
+  }
+  for (let y = minY + 1; y < maxY; y++) {
+    paintPixelEditorPixelRaw(minX, y);
+    paintPixelEditorPixelRaw(maxX, y);
+  }
+
+  renderPixelEditorView();
+}
+
+// Midpoint circle algorithm. cx/cy is the center; x1/y1 determines the radius.
+function drawEditorCircle(cx, cy, x1, y1) {
+  let r = Math.round(Math.sqrt((x1 - cx) ** 2 + (y1 - cy) ** 2));
+  if (r === 0) {
+    paintPixelEditorPixelRaw(cx, cy);
+    renderPixelEditorView();
+    return;
+  }
+
+  let x = r;
+  let y = 0;
+  let err = 0;
+
+  while (x >= y) {
+    paintPixelEditorPixelRaw(cx + x, cy + y);
+    paintPixelEditorPixelRaw(cx + y, cy + x);
+    paintPixelEditorPixelRaw(cx - y, cy + x);
+    paintPixelEditorPixelRaw(cx - x, cy + y);
+    paintPixelEditorPixelRaw(cx - x, cy - y);
+    paintPixelEditorPixelRaw(cx - y, cy - x);
+    paintPixelEditorPixelRaw(cx + y, cy - x);
+    paintPixelEditorPixelRaw(cx + x, cy - y);
+    y++;
+    err += 2 * y + 1;
+    if (err >= 2 * x) {
+      x--;
+      err -= 2 * x + 1;
+    }
+  }
+
+  renderPixelEditorView();
+}
+
+function isPixelEditorShapeTool() {
+  return pixelEditorActiveTool === "line" || pixelEditorActiveTool === "rect" || pixelEditorActiveTool === "circle";
+}
+
+function drawActiveShape(start, end) {
+  if (pixelEditorActiveTool === "line") {
+    drawEditorLine(start.px, start.py, end.px, end.py);
+  } else if (pixelEditorActiveTool === "rect") {
+    drawEditorRect(start.px, start.py, end.px, end.py);
+  } else if (pixelEditorActiveTool === "circle") {
+    drawEditorCircle(start.px, start.py, end.px, end.py);
+  }
+}
+
+function setPixelEditorTool(tool) {
+  pixelEditorActiveTool = tool;
+  const toolBtns = pixelEditorToolboxEl.querySelectorAll(".px-tool");
+  for (const btn of toolBtns) {
+    btn.classList.toggle("is-active", btn.dataset.pxTool === tool);
+  }
+  pixelEditorCanvasEl.style.cursor = tool === "picker" ? "cell" : "crosshair";
+}
+
+function setPixelEditorPenSize(size) {
+  pixelEditorPenSize = size;
+  const sizeBtns = pixelEditorToolboxEl.querySelectorAll(".px-pen-size");
+  for (const btn of sizeBtns) {
+    btn.classList.toggle("is-active", Number(btn.dataset.penSize) === size);
+  }
+}
+
+function onPixelEditorToolboxClick(event) {
+  const toolBtn = event.target.closest(".px-tool");
+  if (toolBtn) {
+    setPixelEditorTool(toolBtn.dataset.pxTool);
+    return;
+  }
+  const sizeBtn = event.target.closest(".px-pen-size");
+  if (sizeBtn) {
+    setPixelEditorPenSize(Number(sizeBtn.dataset.penSize));
+  }
 }
 
 function onPixelEditorMouseDown(event) {
@@ -619,11 +844,30 @@ function onPixelEditorMouseDown(event) {
     return;
   }
 
-  pixelEditorIsPainting = true;
   const coords = getPixelEditorCoords(event);
-  if (coords) {
-    paintPixelEditorPixel(coords.px, coords.py);
+  if (!coords) {
+    return;
   }
+
+  if (pixelEditorActiveTool === "fill") {
+    floodFill(coords.px, coords.py);
+    return;
+  }
+
+  if (pixelEditorActiveTool === "picker") {
+    pickEditorColor(coords.px, coords.py);
+    return;
+  }
+
+  if (isPixelEditorShapeTool()) {
+    pixelEditorShapeStart = { px: coords.px, py: coords.py };
+    pixelEditorShapeSnapshot = pixelEditorEditCtx.getImageData(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+    pixelEditorIsPainting = true;
+    return;
+  }
+
+  pixelEditorIsPainting = true;
+  paintPixelEditorPixel(coords.px, coords.py);
 }
 
 function onPixelEditorMouseMove(event) {
@@ -632,12 +876,41 @@ function onPixelEditorMouseMove(event) {
   }
 
   const coords = getPixelEditorCoords(event);
-  if (coords) {
-    paintPixelEditorPixel(coords.px, coords.py);
+  if (!coords) {
+    return;
   }
+
+  if (
+    isPixelEditorShapeTool() &&
+    pixelEditorShapeStart &&
+    pixelEditorShapeSnapshot
+  ) {
+    pixelEditorEditCtx.putImageData(pixelEditorShapeSnapshot, 0, 0);
+    drawActiveShape(pixelEditorShapeStart, coords);
+    return;
+  }
+
+  paintPixelEditorPixel(coords.px, coords.py);
 }
 
-function onPixelEditorPaintEnd() {
+function onPixelEditorPaintEnd(event) {
+  if (
+    pixelEditorIsPainting &&
+    isPixelEditorShapeTool() &&
+    pixelEditorShapeStart &&
+    pixelEditorShapeSnapshot
+  ) {
+    const coords = event ? getPixelEditorCoords(event) : null;
+    pixelEditorEditCtx.putImageData(pixelEditorShapeSnapshot, 0, 0);
+    if (coords) {
+      drawActiveShape(pixelEditorShapeStart, coords);
+    } else {
+      renderPixelEditorView();
+    }
+    pixelEditorShapeStart = null;
+    pixelEditorShapeSnapshot = null;
+  }
+
   pixelEditorIsPainting = false;
 }
 
