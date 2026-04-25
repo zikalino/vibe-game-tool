@@ -1,0 +1,73 @@
+name: Deploy Backend to UpCloud
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_ip:
+        description: 'IP address of the UpCloud server to deploy to'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key and known hosts
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Use the pre-verified server host key stored as a secret when available;
+          # fall back to ssh-keyscan only for convenience in non-sensitive environments.
+          if [ -n "${{ secrets.SSH_HOST_KEY }}" ]; then
+            printf '%s\n' "${{ secrets.SSH_HOST_KEY }}" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -H "${{ inputs.server_ip }}" >> ~/.ssh/known_hosts
+          fi
+
+      - name: Clone or update repository on server
+        run: |
+          ssh -i ~/.ssh/deploy_key root@${{ inputs.server_ip }} bash << 'ENDSSH'
+            set -euo pipefail
+            REPO_URL="${{ github.server_url }}/${{ github.repository }}.git"
+            REPO_DIR="/opt/vibe-game-tool"
+            if [ -d "${REPO_DIR}/.git" ]; then
+              echo "→ Pulling latest changes..."
+              git -C "${REPO_DIR}" pull --ff-only
+            else
+              echo "→ Cloning repository..."
+              git clone "${REPO_URL}" "${REPO_DIR}"
+            fi
+          ENDSSH
+
+      - name: Upload .env configuration to server
+        env:
+          BACKEND_GITHUB_CLIENT_ID: ${{ secrets.BACKEND_GITHUB_CLIENT_ID }}
+          BACKEND_GITHUB_CLIENT_SECRET: ${{ secrets.BACKEND_GITHUB_CLIENT_SECRET }}
+          BACKEND_JWT_SECRET: ${{ secrets.BACKEND_JWT_SECRET }}
+          BACKEND_DOMAIN: ${{ secrets.BACKEND_DOMAIN }}
+        run: |
+          # Write secrets to a local temp file then transfer via scp to avoid
+          # exposing values in the remote command string or process list.
+          TMPENV=$(mktemp)
+          trap 'rm -f "${TMPENV}"' EXIT
+          {
+            printf 'GITHUB_CLIENT_ID=%s\n'     "${BACKEND_GITHUB_CLIENT_ID}"
+            printf 'GITHUB_CLIENT_SECRET=%s\n' "${BACKEND_GITHUB_CLIENT_SECRET}"
+            printf 'JWT_SECRET=%s\n'           "${BACKEND_JWT_SECRET}"
+            printf 'DOMAIN=%s\n'               "${BACKEND_DOMAIN}"
+            printf 'DATABASE_URL=%s\n'         "sqlite:///app/data/app.db"
+          } > "${TMPENV}"
+          scp -i ~/.ssh/deploy_key "${TMPENV}" \
+            root@${{ inputs.server_ip }}:/opt/vibe-game-tool/deploy/.env
+
+      - name: Run deploy script on server
+        run: |
+          ssh -i ~/.ssh/deploy_key root@${{ inputs.server_ip }} \
+            "bash /opt/vibe-game-tool/deploy/deploy.sh"
