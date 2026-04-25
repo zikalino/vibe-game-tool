@@ -1,0 +1,99 @@
+import { Router } from "express";
+import fetch from "node-fetch";
+import jwt from "jsonwebtoken";
+import { upsertUser } from "../db.js";
+
+const router = Router();
+
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+  throw new Error("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables are required");
+}
+
+/**
+ * POST /api/auth/github
+ * Body: { code: "<oauth code>", code_verifier?: "<pkce verifier>" }
+ *
+ * Exchanges a GitHub OAuth authorization code for an access token,
+ * fetches the authenticated user's profile, upserts the user in the
+ * database, and returns a signed JWT.
+ */
+router.post("/github", async (req, res) => {
+  const { code, code_verifier } = req.body;
+
+  if (!code) {
+    return res.status(400).json({ error: "Missing required field: code" });
+  }
+
+  // Exchange code for GitHub access token
+  const tokenParams = new URLSearchParams({
+    client_id: GITHUB_CLIENT_ID,
+    client_secret: GITHUB_CLIENT_SECRET,
+    code,
+  });
+  if (code_verifier) {
+    tokenParams.set("code_verifier", code_verifier);
+  }
+
+  let githubTokenData;
+  try {
+    const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+      body: tokenParams.toString(),
+    });
+    githubTokenData = await tokenRes.json();
+  } catch (err) {
+    console.error("GitHub token exchange network error:", err);
+    return res.status(502).json({ error: "Failed to reach GitHub token endpoint" });
+  }
+
+  if (githubTokenData.error) {
+    return res.status(400).json({
+      error: githubTokenData.error,
+      error_description: githubTokenData.error_description,
+    });
+  }
+
+  const { access_token } = githubTokenData;
+
+  // Fetch GitHub user profile
+  let profile;
+  try {
+    const profileRes = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+    if (!profileRes.ok) {
+      throw new Error(`GitHub API responded with ${profileRes.status}`);
+    }
+    profile = await profileRes.json();
+  } catch (err) {
+    console.error("GitHub profile fetch error:", err);
+    return res.status(502).json({ error: "Failed to fetch GitHub user profile" });
+  }
+
+  // Upsert user and create JWT
+  const user = upsertUser({
+    github_id: String(profile.id),
+    login: profile.login,
+    name: profile.name || null,
+    avatar_url: profile.avatar_url || null,
+  });
+
+  const token = jwt.sign(
+    { sub: user.id, github_id: user.github_id, login: user.login },
+    JWT_SECRET,
+    { expiresIn: "30d" }
+  );
+
+  return res.json({ token, user: { id: user.id, login: user.login, name: user.name, avatar_url: user.avatar_url } });
+});
+
+export default router;
