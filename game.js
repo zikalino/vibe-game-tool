@@ -787,7 +787,7 @@ function drawEditorCircle(cx, cy, x1, y1) {
     paintPixelEditorPixelRaw(cx + x, cy - y);
     y++;
     err += 2 * y + 1;
-    if (err >= x * 2) {
+    if (err >= 2 * x) {
       x--;
       err -= 2 * x + 1;
     }
@@ -798,6 +798,16 @@ function drawEditorCircle(cx, cy, x1, y1) {
 
 function isPixelEditorShapeTool() {
   return pixelEditorActiveTool === "line" || pixelEditorActiveTool === "rect" || pixelEditorActiveTool === "circle";
+}
+
+function drawActiveShape(start, end) {
+  if (pixelEditorActiveTool === "line") {
+    drawEditorLine(start.px, start.py, end.px, end.py);
+  } else if (pixelEditorActiveTool === "rect") {
+    drawEditorRect(start.px, start.py, end.px, end.py);
+  } else if (pixelEditorActiveTool === "circle") {
+    drawEditorCircle(start.px, start.py, end.px, end.py);
+  }
 }
 
 function setPixelEditorTool(tool) {
@@ -876,13 +886,7 @@ function onPixelEditorMouseMove(event) {
     pixelEditorShapeSnapshot
   ) {
     pixelEditorEditCtx.putImageData(pixelEditorShapeSnapshot, 0, 0);
-    if (pixelEditorActiveTool === "line") {
-      drawEditorLine(pixelEditorShapeStart.px, pixelEditorShapeStart.py, coords.px, coords.py);
-    } else if (pixelEditorActiveTool === "rect") {
-      drawEditorRect(pixelEditorShapeStart.px, pixelEditorShapeStart.py, coords.px, coords.py);
-    } else if (pixelEditorActiveTool === "circle") {
-      drawEditorCircle(pixelEditorShapeStart.px, pixelEditorShapeStart.py, coords.px, coords.py);
-    }
+    drawActiveShape(pixelEditorShapeStart, coords);
     return;
   }
 
@@ -899,13 +903,7 @@ function onPixelEditorPaintEnd(event) {
     const coords = event ? getPixelEditorCoords(event) : null;
     pixelEditorEditCtx.putImageData(pixelEditorShapeSnapshot, 0, 0);
     if (coords) {
-      if (pixelEditorActiveTool === "line") {
-        drawEditorLine(pixelEditorShapeStart.px, pixelEditorShapeStart.py, coords.px, coords.py);
-      } else if (pixelEditorActiveTool === "rect") {
-        drawEditorRect(pixelEditorShapeStart.px, pixelEditorShapeStart.py, coords.px, coords.py);
-      } else if (pixelEditorActiveTool === "circle") {
-        drawEditorCircle(pixelEditorShapeStart.px, pixelEditorShapeStart.py, coords.px, coords.py);
-      }
+      drawActiveShape(pixelEditorShapeStart, coords);
     } else {
       renderPixelEditorView();
     }
