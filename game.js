@@ -138,6 +138,8 @@ let isGitHubAuthLoading = false;
 
 const PIXEL_EDITOR_ZOOM = 10;
 const PIXEL_EDITOR_TILE_SIZE = 32;
+const SELECTION_HANDLE_HIT_THRESHOLD = 6;
+const SELECTION_DASH_LENGTH = 4;
 const PIXEL_EDITOR_PALETTE_COLORS = [
   "#000000", "#444444", "#888888", "#cccccc", "#ffffff",
   "#7f868d", "#4f4f4f", "#808080", "#565656", "#9f7746",
@@ -170,6 +172,13 @@ let pixelEditorActiveTool = "draw";
 let pixelEditorPenSize = 1;
 let pixelEditorShapeStart = null;
 let pixelEditorShapeSnapshot = null;
+let pixelEditorSelection = null;                  // { x, y, w, h } in tile pixel coords, null = no selection
+let pixelEditorSelectionClipboard = null;         // HTMLCanvasElement with copied pixels
+let pixelEditorSelectionDragMode = null;          // null, "new", "move", or "resize-" + direction ("nw","n","ne","e","se","s","sw","w")
+let pixelEditorSelectionDragStart = null;         // { px, py } tile pixel coords at drag start
+let pixelEditorSelectionDragOrigSel = null;       // { x, y, w, h } selection at drag start
+let pixelEditorSelectionFloatCanvas = null;       // HTMLCanvasElement with floating pixels (during move)
+let pixelEditorSelectionBaseSnapshot = null;      // ImageData of canvas with hole cut out (during move)
 
 const gameContext = {
   githubAuth: null,
@@ -508,6 +517,12 @@ function closePixelEditor() {
   pixelEditorIsPainting = false;
   pixelEditorShapeStart = null;
   pixelEditorShapeSnapshot = null;
+  pixelEditorSelection = null;
+  pixelEditorSelectionDragMode = null;
+  pixelEditorSelectionDragStart = null;
+  pixelEditorSelectionDragOrigSel = null;
+  pixelEditorSelectionFloatCanvas = null;
+  pixelEditorSelectionBaseSnapshot = null;
 }
 
 function resetPixelEditor() {
@@ -591,6 +606,10 @@ function renderPixelEditorView() {
     editorCtx.moveTo(0, pos);
     editorCtx.lineTo(pixelEditorCanvasEl.width, pos);
     editorCtx.stroke();
+  }
+
+  if (pixelEditorSelection) {
+    renderSelectionOverlay(editorCtx);
   }
 }
 
@@ -803,6 +822,177 @@ function isPixelEditorShapeTool() {
   return pixelEditorActiveTool === "line" || pixelEditorActiveTool === "rect" || pixelEditorActiveTool === "circle";
 }
 
+const PIXEL_EDITOR_HANDLE_CURSORS = {
+  nw: "nw-resize", n: "n-resize", ne: "ne-resize",
+  e: "e-resize", se: "se-resize", s: "s-resize",
+  sw: "sw-resize", w: "w-resize",
+};
+
+function getCanvasScreenCoords(event) {
+  const rect = pixelEditorCanvasEl.getBoundingClientRect();
+  const scaleX = pixelEditorCanvasEl.width / rect.width;
+  const scaleY = pixelEditorCanvasEl.height / rect.height;
+  return {
+    sx: (event.clientX - rect.left) * scaleX,
+    sy: (event.clientY - rect.top) * scaleY,
+  };
+}
+
+function getPixelEditorCoordsClamped(event) {
+  const rect = pixelEditorCanvasEl.getBoundingClientRect();
+  const scaleX = pixelEditorCanvasEl.width / rect.width;
+  const scaleY = pixelEditorCanvasEl.height / rect.height;
+  const screenX = (event.clientX - rect.left) * scaleX;
+  const screenY = (event.clientY - rect.top) * scaleY;
+  const px = Math.max(0, Math.min(PIXEL_EDITOR_TILE_SIZE - 1, Math.floor(screenX / PIXEL_EDITOR_ZOOM)));
+  const py = Math.max(0, Math.min(PIXEL_EDITOR_TILE_SIZE - 1, Math.floor(screenY / PIXEL_EDITOR_ZOOM)));
+  return { px, py };
+}
+
+function getSelectionHandleAt(sx, sy) {
+  if (!pixelEditorSelection) {
+    return null;
+  }
+  const { x, y, w, h } = pixelEditorSelection;
+  const l = x * PIXEL_EDITOR_ZOOM;
+  const t = y * PIXEL_EDITOR_ZOOM;
+  const r = (x + w) * PIXEL_EDITOR_ZOOM;
+  const b = (y + h) * PIXEL_EDITOR_ZOOM;
+  const mx = (l + r) / 2;
+  const my = (t + b) / 2;
+  const HIT = SELECTION_HANDLE_HIT_THRESHOLD;
+  const handles = [
+    ["nw", l, t], ["n", mx, t], ["ne", r, t],
+    ["e", r, my],
+    ["se", r, b], ["s", mx, b], ["sw", l, b],
+    ["w", l, my],
+  ];
+  for (const [name, hx, hy] of handles) {
+    if (Math.abs(sx - hx) <= HIT && Math.abs(sy - hy) <= HIT) {
+      return name;
+    }
+  }
+  return null;
+}
+
+function isInsideSelection(px, py) {
+  if (!pixelEditorSelection) {
+    return false;
+  }
+  const { x, y, w, h } = pixelEditorSelection;
+  return px >= x && px < x + w && py >= y && py < y + h;
+}
+
+function renderSelectionOverlay(editorCtx) {
+  if (!pixelEditorSelection) {
+    return;
+  }
+  const { x, y, w, h } = pixelEditorSelection;
+  const sx = x * PIXEL_EDITOR_ZOOM;
+  const sy = y * PIXEL_EDITOR_ZOOM;
+  const sw = w * PIXEL_EDITOR_ZOOM;
+  const sh = h * PIXEL_EDITOR_ZOOM;
+
+  editorCtx.save();
+  editorCtx.lineWidth = 1;
+  editorCtx.setLineDash([SELECTION_DASH_LENGTH, SELECTION_DASH_LENGTH]);
+  editorCtx.strokeStyle = "#fff";
+  editorCtx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
+  editorCtx.strokeStyle = "#000";
+  editorCtx.lineDashOffset = SELECTION_DASH_LENGTH;
+  editorCtx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
+  editorCtx.setLineDash([]);
+
+  const l = sx, t = sy, r = sx + sw, b = sy + sh;
+  const midX = (l + r) / 2, midY = (t + b) / 2;
+  for (const [hx, hy] of [[l, t], [midX, t], [r, t], [r, midY], [r, b], [midX, b], [l, b], [l, midY]]) {
+    editorCtx.fillStyle = "#fff";
+    editorCtx.fillRect(hx - 3, hy - 3, 6, 6);
+    editorCtx.strokeStyle = "#000";
+    editorCtx.lineWidth = 1;
+    editorCtx.strokeRect(hx - 3, hy - 3, 6, 6);
+  }
+  editorCtx.restore();
+}
+
+function commitSelectionFloat() {
+  // The canvas already has the floating pixels drawn at the current position.
+  // Just clear the float state.
+  pixelEditorSelectionFloatCanvas = null;
+  pixelEditorSelectionBaseSnapshot = null;
+}
+
+function startSelectionMove(px, py) {
+  if (!pixelEditorSelection || !pixelEditorEditCtx) {
+    return;
+  }
+  const sel = pixelEditorSelection;
+
+  // Extract the pixels in the selected area.
+  const floatData = pixelEditorEditCtx.getImageData(sel.x, sel.y, sel.w, sel.h);
+
+  // Clear the selected area from the canvas.
+  pixelEditorEditCtx.clearRect(sel.x, sel.y, sel.w, sel.h);
+
+  // Capture the base canvas state (canvas with hole).
+  pixelEditorSelectionBaseSnapshot = pixelEditorEditCtx.getImageData(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+
+  // Create a canvas holding just the floating pixels.
+  pixelEditorSelectionFloatCanvas = document.createElement("canvas");
+  pixelEditorSelectionFloatCanvas.width = sel.w;
+  pixelEditorSelectionFloatCanvas.height = sel.h;
+  pixelEditorSelectionFloatCanvas.getContext("2d").putImageData(floatData, 0, 0);
+
+  // Draw float back at its original position so the visual is unchanged.
+  pixelEditorEditCtx.drawImage(pixelEditorSelectionFloatCanvas, sel.x, sel.y);
+
+  pixelEditorSelectionDragMode = "move";
+  pixelEditorSelectionDragStart = { px, py };
+  pixelEditorSelectionDragOrigSel = { ...sel };
+}
+
+function copySelectionToClipboard() {
+  if (!pixelEditorSelection || !pixelEditorEditCtx) {
+    return;
+  }
+  const { x, y, w, h } = pixelEditorSelection;
+  const imageData = pixelEditorSelectionFloatCanvas
+    ? pixelEditorSelectionFloatCanvas.getContext("2d").getImageData(0, 0, w, h)
+    : pixelEditorEditCtx.getImageData(x, y, w, h);
+
+  pixelEditorSelectionClipboard = document.createElement("canvas");
+  pixelEditorSelectionClipboard.width = w;
+  pixelEditorSelectionClipboard.height = h;
+  pixelEditorSelectionClipboard.getContext("2d").putImageData(imageData, 0, 0);
+}
+
+function cutSelection() {
+  if (!pixelEditorSelection || !pixelEditorEditCtx) {
+    return;
+  }
+  if (pixelEditorSelectionFloatCanvas) {
+    commitSelectionFloat();
+  }
+  copySelectionToClipboard();
+  const { x, y, w, h } = pixelEditorSelection;
+  pixelEditorEditCtx.clearRect(x, y, w, h);
+  renderPixelEditorView();
+}
+
+function pasteFromInternalClipboard() {
+  if (!pixelEditorSelectionClipboard || !pixelEditorEditCtx) {
+    return;
+  }
+  if (pixelEditorSelection) {
+    const { x, y, w, h } = pixelEditorSelection;
+    pixelEditorEditCtx.drawImage(pixelEditorSelectionClipboard, x, y, w, h);
+  } else {
+    pixelEditorEditCtx.clearRect(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+    pixelEditorEditCtx.drawImage(pixelEditorSelectionClipboard, 0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+  }
+  renderPixelEditorView();
+}
+
 function drawActiveShape(start, end) {
   if (pixelEditorActiveTool === "line") {
     drawEditorLine(start.px, start.py, end.px, end.py);
@@ -814,6 +1004,16 @@ function drawActiveShape(start, end) {
 }
 
 function setPixelEditorTool(tool) {
+  if (tool !== "select") {
+    if (pixelEditorSelectionFloatCanvas) {
+      commitSelectionFloat();
+    }
+    pixelEditorSelection = null;
+    pixelEditorSelectionDragMode = null;
+    pixelEditorSelectionDragStart = null;
+    pixelEditorSelectionDragOrigSel = null;
+    renderPixelEditorView();
+  }
   pixelEditorActiveTool = tool;
   const toolBtns = pixelEditorToolboxEl.querySelectorAll(".px-tool");
   for (const btn of toolBtns) {
@@ -851,6 +1051,34 @@ function onPixelEditorMouseDown(event) {
     return;
   }
 
+  if (pixelEditorActiveTool === "select") {
+    const coordsClamped = getPixelEditorCoordsClamped(event);
+    const { sx, sy } = getCanvasScreenCoords(event);
+    const handle = pixelEditorSelection ? getSelectionHandleAt(sx, sy) : null;
+
+    if (handle) {
+      pixelEditorSelectionDragMode = "resize-" + handle;
+      pixelEditorSelectionDragStart = { px: coordsClamped.px, py: coordsClamped.py };
+      pixelEditorSelectionDragOrigSel = { ...pixelEditorSelection };
+      return;
+    }
+
+    if (pixelEditorSelection && isInsideSelection(coordsClamped.px, coordsClamped.py)) {
+      startSelectionMove(coordsClamped.px, coordsClamped.py);
+      return;
+    }
+
+    // Click outside any existing selection: start drawing a new selection.
+    if (pixelEditorSelectionFloatCanvas) {
+      commitSelectionFloat();
+    }
+    pixelEditorSelection = null;
+    pixelEditorSelectionDragMode = "new";
+    pixelEditorSelectionDragStart = { px: coordsClamped.px, py: coordsClamped.py };
+    renderPixelEditorView();
+    return;
+  }
+
   const coords = getPixelEditorCoords(event);
   if (!coords) {
     return;
@@ -878,6 +1106,83 @@ function onPixelEditorMouseDown(event) {
 }
 
 function onPixelEditorMouseMove(event) {
+  if (pixelEditorActiveTool === "select") {
+    const coordsClamped = getPixelEditorCoordsClamped(event);
+    const { sx, sy } = getCanvasScreenCoords(event);
+
+    if (!pixelEditorSelectionDragMode) {
+      // Update cursor to reflect what a click here would do.
+      const handle = pixelEditorSelection ? getSelectionHandleAt(sx, sy) : null;
+      if (handle) {
+        pixelEditorCanvasEl.style.cursor = PIXEL_EDITOR_HANDLE_CURSORS[handle];
+      } else if (pixelEditorSelection && isInsideSelection(coordsClamped.px, coordsClamped.py)) {
+        pixelEditorCanvasEl.style.cursor = "move";
+      } else {
+        pixelEditorCanvasEl.style.cursor = "crosshair";
+      }
+      return;
+    }
+
+    if (pixelEditorSelectionDragMode === "new") {
+      const x0 = pixelEditorSelectionDragStart.px;
+      const y0 = pixelEditorSelectionDragStart.py;
+      pixelEditorSelection = {
+        x: Math.min(x0, coordsClamped.px),
+        y: Math.min(y0, coordsClamped.py),
+        w: Math.abs(coordsClamped.px - x0) + 1,
+        h: Math.abs(coordsClamped.py - y0) + 1,
+      };
+      renderPixelEditorView();
+      return;
+    }
+
+    if (pixelEditorSelectionDragMode === "move") {
+      const dx = coordsClamped.px - pixelEditorSelectionDragStart.px;
+      const dy = coordsClamped.py - pixelEditorSelectionDragStart.py;
+      const orig = pixelEditorSelectionDragOrigSel;
+      const newX = Math.max(0, Math.min(PIXEL_EDITOR_TILE_SIZE - orig.w, orig.x + dx));
+      const newY = Math.max(0, Math.min(PIXEL_EDITOR_TILE_SIZE - orig.h, orig.y + dy));
+      pixelEditorSelection = { x: newX, y: newY, w: orig.w, h: orig.h };
+      pixelEditorEditCtx.putImageData(pixelEditorSelectionBaseSnapshot, 0, 0);
+      pixelEditorEditCtx.drawImage(pixelEditorSelectionFloatCanvas, newX, newY);
+      renderPixelEditorView();
+      return;
+    }
+
+    if (pixelEditorSelectionDragMode.startsWith("resize-")) {
+      const handle = pixelEditorSelectionDragMode.slice(7);
+      const dx = coordsClamped.px - pixelEditorSelectionDragStart.px;
+      const dy = coordsClamped.py - pixelEditorSelectionDragStart.py;
+      const orig = pixelEditorSelectionDragOrigSel;
+      let { x, y, w, h } = orig;
+      const origRight = x + w;
+      const origBottom = y + h;
+
+      if (handle.includes("w")) {
+        const newX = Math.max(0, Math.min(origRight - 1, orig.x + dx));
+        x = newX;
+        w = origRight - newX;
+      }
+      if (handle.includes("e")) {
+        w = Math.max(1, Math.min(PIXEL_EDITOR_TILE_SIZE - orig.x, orig.w + dx));
+      }
+      if (handle.includes("n")) {
+        const newY = Math.max(0, Math.min(origBottom - 1, orig.y + dy));
+        y = newY;
+        h = origBottom - newY;
+      }
+      if (handle.includes("s")) {
+        h = Math.max(1, Math.min(PIXEL_EDITOR_TILE_SIZE - orig.y, orig.h + dy));
+      }
+
+      pixelEditorSelection = { x, y, w, h };
+      renderPixelEditorView();
+      return;
+    }
+
+    return;
+  }
+
   if (!pixelEditorIsPainting) {
     return;
   }
@@ -901,6 +1206,32 @@ function onPixelEditorMouseMove(event) {
 }
 
 function onPixelEditorPaintEnd(event) {
+  if (pixelEditorActiveTool === "select") {
+    if (pixelEditorSelectionDragMode === "new") {
+      const coordsClamped = event ? getPixelEditorCoordsClamped(event) : null;
+      const noMovement = !coordsClamped ||
+        (coordsClamped.px === pixelEditorSelectionDragStart.px &&
+         coordsClamped.py === pixelEditorSelectionDragStart.py);
+      if (noMovement) {
+        // Click without drag: clear any float and deselect.
+        if (pixelEditorSelectionFloatCanvas) {
+          commitSelectionFloat();
+        }
+        pixelEditorSelection = null;
+        renderPixelEditorView();
+      }
+      // else: selection was finalized in onPixelEditorMouseMove; nothing extra to do.
+    } else if (pixelEditorSelectionDragMode === "move") {
+      commitSelectionFloat();
+      renderPixelEditorView();
+    }
+    // resize: selection already updated in mousemove; nothing extra needed.
+    pixelEditorSelectionDragMode = null;
+    pixelEditorSelectionDragStart = null;
+    pixelEditorSelectionDragOrigSel = null;
+    return;
+  }
+
   if (
     pixelEditorIsPainting &&
     isPixelEditorShapeTool() &&
@@ -946,8 +1277,13 @@ function onPaste(event) {
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
-        pixelEditorEditCtx.clearRect(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
-        pixelEditorEditCtx.drawImage(img, 0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+        if (pixelEditorSelection) {
+          const { x, y, w, h } = pixelEditorSelection;
+          pixelEditorEditCtx.drawImage(img, x, y, w, h);
+        } else {
+          pixelEditorEditCtx.clearRect(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+          pixelEditorEditCtx.drawImage(img, 0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+        }
         URL.revokeObjectURL(url);
         renderPixelEditorView();
       };
@@ -1600,6 +1936,25 @@ function onKeyDown(event) {
 
   if (appMode === "play" && (isMoveKey || isActionKey)) {
     event.preventDefault();
+  }
+
+  // Pixel editor keyboard shortcuts.
+  if (pixelEditorEditCtx && (event.ctrlKey || event.metaKey)) {
+    if (key === "c" && pixelEditorActiveTool === "select" && pixelEditorSelection) {
+      event.preventDefault();
+      copySelectionToClipboard();
+      return;
+    }
+    if (key === "x" && pixelEditorActiveTool === "select" && pixelEditorSelection) {
+      event.preventDefault();
+      cutSelection();
+      return;
+    }
+    if (key === "v" && pixelEditorSelectionClipboard) {
+      event.preventDefault();
+      pasteFromInternalClipboard();
+      return;
+    }
   }
 
   if (key === "r") {
