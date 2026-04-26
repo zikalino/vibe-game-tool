@@ -138,6 +138,8 @@ let isGitHubAuthLoading = false;
 
 const PIXEL_EDITOR_ZOOM = 10;
 const PIXEL_EDITOR_TILE_SIZE = 32;
+const SELECTION_HANDLE_HIT_THRESHOLD = 6;
+const SELECTION_DASH_LENGTH = 4;
 const PIXEL_EDITOR_PALETTE_COLORS = [
   "#000000", "#444444", "#888888", "#cccccc", "#ffffff",
   "#7f868d", "#4f4f4f", "#808080", "#565656", "#9f7746",
@@ -170,13 +172,13 @@ let pixelEditorActiveTool = "draw";
 let pixelEditorPenSize = 1;
 let pixelEditorShapeStart = null;
 let pixelEditorShapeSnapshot = null;
-let pixelEditorSelection = null;          // { x, y, w, h } in tile pixel coords, null = no selection
-let pixelEditorSelectionClipboard = null; // HTMLCanvasElement with copied pixels
-let pixelEditorSelDragMode = null;        // "new"|"move"|"resize-nw"|"resize-n"|"resize-ne"|"resize-e"|"resize-se"|"resize-s"|"resize-sw"|"resize-w"
-let pixelEditorSelDragStart = null;       // { px, py } tile pixel coords at drag start
-let pixelEditorSelDragOrigSel = null;     // { x, y, w, h } selection at drag start
-let pixelEditorSelFloatCanvas = null;     // HTMLCanvasElement with floating pixels (during move)
-let pixelEditorSelBaseSnapshot = null;    // ImageData of canvas with hole cut out (during move)
+let pixelEditorSelection = null;                  // { x, y, w, h } in tile pixel coords, null = no selection
+let pixelEditorSelectionClipboard = null;         // HTMLCanvasElement with copied pixels
+let pixelEditorSelectionDragMode = null;          // "new"|"move"|"resize-nw"|"resize-n"|"resize-ne"|"resize-e"|"resize-se"|"resize-s"|"resize-sw"|"resize-w"
+let pixelEditorSelectionDragStart = null;         // { px, py } tile pixel coords at drag start
+let pixelEditorSelectionDragOrigSel = null;       // { x, y, w, h } selection at drag start
+let pixelEditorSelectionFloatCanvas = null;       // HTMLCanvasElement with floating pixels (during move)
+let pixelEditorSelectionBaseSnapshot = null;      // ImageData of canvas with hole cut out (during move)
 
 const gameContext = {
   githubAuth: null,
@@ -516,11 +518,11 @@ function closePixelEditor() {
   pixelEditorShapeStart = null;
   pixelEditorShapeSnapshot = null;
   pixelEditorSelection = null;
-  pixelEditorSelDragMode = null;
-  pixelEditorSelDragStart = null;
-  pixelEditorSelDragOrigSel = null;
-  pixelEditorSelFloatCanvas = null;
-  pixelEditorSelBaseSnapshot = null;
+  pixelEditorSelectionDragMode = null;
+  pixelEditorSelectionDragStart = null;
+  pixelEditorSelectionDragOrigSel = null;
+  pixelEditorSelectionFloatCanvas = null;
+  pixelEditorSelectionBaseSnapshot = null;
 }
 
 function resetPixelEditor() {
@@ -858,7 +860,7 @@ function getSelectionHandleAt(sx, sy) {
   const b = (y + h) * PIXEL_EDITOR_ZOOM;
   const mx = (l + r) / 2;
   const my = (t + b) / 2;
-  const HIT = 6;
+  const HIT = SELECTION_HANDLE_HIT_THRESHOLD;
   const handles = [
     ["nw", l, t], ["n", mx, t], ["ne", r, t],
     ["e", r, my],
@@ -893,11 +895,11 @@ function renderSelectionOverlay(editorCtx) {
 
   editorCtx.save();
   editorCtx.lineWidth = 1;
-  editorCtx.setLineDash([4, 4]);
+  editorCtx.setLineDash([SELECTION_DASH_LENGTH, SELECTION_DASH_LENGTH]);
   editorCtx.strokeStyle = "#fff";
   editorCtx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
   editorCtx.strokeStyle = "#000";
-  editorCtx.lineDashOffset = 4;
+  editorCtx.lineDashOffset = SELECTION_DASH_LENGTH;
   editorCtx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
   editorCtx.setLineDash([]);
 
@@ -916,8 +918,8 @@ function renderSelectionOverlay(editorCtx) {
 function commitSelectionFloat() {
   // The canvas already has the floating pixels drawn at the current position.
   // Just clear the float state.
-  pixelEditorSelFloatCanvas = null;
-  pixelEditorSelBaseSnapshot = null;
+  pixelEditorSelectionFloatCanvas = null;
+  pixelEditorSelectionBaseSnapshot = null;
 }
 
 function startSelectionMove(px, py) {
@@ -933,20 +935,20 @@ function startSelectionMove(px, py) {
   pixelEditorEditCtx.clearRect(sel.x, sel.y, sel.w, sel.h);
 
   // Capture the base canvas state (canvas with hole).
-  pixelEditorSelBaseSnapshot = pixelEditorEditCtx.getImageData(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
+  pixelEditorSelectionBaseSnapshot = pixelEditorEditCtx.getImageData(0, 0, PIXEL_EDITOR_TILE_SIZE, PIXEL_EDITOR_TILE_SIZE);
 
   // Create a canvas holding just the floating pixels.
-  pixelEditorSelFloatCanvas = document.createElement("canvas");
-  pixelEditorSelFloatCanvas.width = sel.w;
-  pixelEditorSelFloatCanvas.height = sel.h;
-  pixelEditorSelFloatCanvas.getContext("2d").putImageData(floatData, 0, 0);
+  pixelEditorSelectionFloatCanvas = document.createElement("canvas");
+  pixelEditorSelectionFloatCanvas.width = sel.w;
+  pixelEditorSelectionFloatCanvas.height = sel.h;
+  pixelEditorSelectionFloatCanvas.getContext("2d").putImageData(floatData, 0, 0);
 
   // Draw float back at its original position so the visual is unchanged.
-  pixelEditorEditCtx.drawImage(pixelEditorSelFloatCanvas, sel.x, sel.y);
+  pixelEditorEditCtx.drawImage(pixelEditorSelectionFloatCanvas, sel.x, sel.y);
 
-  pixelEditorSelDragMode = "move";
-  pixelEditorSelDragStart = { px, py };
-  pixelEditorSelDragOrigSel = { ...sel };
+  pixelEditorSelectionDragMode = "move";
+  pixelEditorSelectionDragStart = { px, py };
+  pixelEditorSelectionDragOrigSel = { ...sel };
 }
 
 function copySelectionToClipboard() {
@@ -954,8 +956,8 @@ function copySelectionToClipboard() {
     return;
   }
   const { x, y, w, h } = pixelEditorSelection;
-  const imageData = pixelEditorSelFloatCanvas
-    ? pixelEditorSelFloatCanvas.getContext("2d").getImageData(0, 0, w, h)
+  const imageData = pixelEditorSelectionFloatCanvas
+    ? pixelEditorSelectionFloatCanvas.getContext("2d").getImageData(0, 0, w, h)
     : pixelEditorEditCtx.getImageData(x, y, w, h);
 
   pixelEditorSelectionClipboard = document.createElement("canvas");
@@ -968,7 +970,7 @@ function cutSelection() {
   if (!pixelEditorSelection || !pixelEditorEditCtx) {
     return;
   }
-  if (pixelEditorSelFloatCanvas) {
+  if (pixelEditorSelectionFloatCanvas) {
     commitSelectionFloat();
   }
   copySelectionToClipboard();
@@ -1003,13 +1005,13 @@ function drawActiveShape(start, end) {
 
 function setPixelEditorTool(tool) {
   if (tool !== "select") {
-    if (pixelEditorSelFloatCanvas) {
+    if (pixelEditorSelectionFloatCanvas) {
       commitSelectionFloat();
     }
     pixelEditorSelection = null;
-    pixelEditorSelDragMode = null;
-    pixelEditorSelDragStart = null;
-    pixelEditorSelDragOrigSel = null;
+    pixelEditorSelectionDragMode = null;
+    pixelEditorSelectionDragStart = null;
+    pixelEditorSelectionDragOrigSel = null;
     renderPixelEditorView();
   }
   pixelEditorActiveTool = tool;
@@ -1055,9 +1057,9 @@ function onPixelEditorMouseDown(event) {
     const handle = pixelEditorSelection ? getSelectionHandleAt(sx, sy) : null;
 
     if (handle) {
-      pixelEditorSelDragMode = "resize-" + handle;
-      pixelEditorSelDragStart = { px: coordsClamped.px, py: coordsClamped.py };
-      pixelEditorSelDragOrigSel = { ...pixelEditorSelection };
+      pixelEditorSelectionDragMode = "resize-" + handle;
+      pixelEditorSelectionDragStart = { px: coordsClamped.px, py: coordsClamped.py };
+      pixelEditorSelectionDragOrigSel = { ...pixelEditorSelection };
       return;
     }
 
@@ -1067,12 +1069,12 @@ function onPixelEditorMouseDown(event) {
     }
 
     // Click outside any existing selection: start drawing a new selection.
-    if (pixelEditorSelFloatCanvas) {
+    if (pixelEditorSelectionFloatCanvas) {
       commitSelectionFloat();
     }
     pixelEditorSelection = null;
-    pixelEditorSelDragMode = "new";
-    pixelEditorSelDragStart = { px: coordsClamped.px, py: coordsClamped.py };
+    pixelEditorSelectionDragMode = "new";
+    pixelEditorSelectionDragStart = { px: coordsClamped.px, py: coordsClamped.py };
     renderPixelEditorView();
     return;
   }
@@ -1108,7 +1110,7 @@ function onPixelEditorMouseMove(event) {
     const coordsClamped = getPixelEditorCoordsClamped(event);
     const { sx, sy } = getCanvasScreenCoords(event);
 
-    if (!pixelEditorSelDragMode) {
+    if (!pixelEditorSelectionDragMode) {
       // Update cursor to reflect what a click here would do.
       const handle = pixelEditorSelection ? getSelectionHandleAt(sx, sy) : null;
       if (handle) {
@@ -1121,9 +1123,9 @@ function onPixelEditorMouseMove(event) {
       return;
     }
 
-    if (pixelEditorSelDragMode === "new") {
-      const x0 = pixelEditorSelDragStart.px;
-      const y0 = pixelEditorSelDragStart.py;
+    if (pixelEditorSelectionDragMode === "new") {
+      const x0 = pixelEditorSelectionDragStart.px;
+      const y0 = pixelEditorSelectionDragStart.py;
       pixelEditorSelection = {
         x: Math.min(x0, coordsClamped.px),
         y: Math.min(y0, coordsClamped.py),
@@ -1134,24 +1136,24 @@ function onPixelEditorMouseMove(event) {
       return;
     }
 
-    if (pixelEditorSelDragMode === "move") {
-      const dx = coordsClamped.px - pixelEditorSelDragStart.px;
-      const dy = coordsClamped.py - pixelEditorSelDragStart.py;
-      const orig = pixelEditorSelDragOrigSel;
+    if (pixelEditorSelectionDragMode === "move") {
+      const dx = coordsClamped.px - pixelEditorSelectionDragStart.px;
+      const dy = coordsClamped.py - pixelEditorSelectionDragStart.py;
+      const orig = pixelEditorSelectionDragOrigSel;
       const newX = Math.max(0, Math.min(PIXEL_EDITOR_TILE_SIZE - orig.w, orig.x + dx));
       const newY = Math.max(0, Math.min(PIXEL_EDITOR_TILE_SIZE - orig.h, orig.y + dy));
       pixelEditorSelection = { x: newX, y: newY, w: orig.w, h: orig.h };
-      pixelEditorEditCtx.putImageData(pixelEditorSelBaseSnapshot, 0, 0);
-      pixelEditorEditCtx.drawImage(pixelEditorSelFloatCanvas, newX, newY);
+      pixelEditorEditCtx.putImageData(pixelEditorSelectionBaseSnapshot, 0, 0);
+      pixelEditorEditCtx.drawImage(pixelEditorSelectionFloatCanvas, newX, newY);
       renderPixelEditorView();
       return;
     }
 
-    if (pixelEditorSelDragMode.startsWith("resize-")) {
-      const handle = pixelEditorSelDragMode.slice(7);
-      const dx = coordsClamped.px - pixelEditorSelDragStart.px;
-      const dy = coordsClamped.py - pixelEditorSelDragStart.py;
-      const orig = pixelEditorSelDragOrigSel;
+    if (pixelEditorSelectionDragMode.startsWith("resize-")) {
+      const handle = pixelEditorSelectionDragMode.slice(7);
+      const dx = coordsClamped.px - pixelEditorSelectionDragStart.px;
+      const dy = coordsClamped.py - pixelEditorSelectionDragStart.py;
+      const orig = pixelEditorSelectionDragOrigSel;
       let { x, y, w, h } = orig;
       const origRight = x + w;
       const origBottom = y + h;
@@ -1205,28 +1207,28 @@ function onPixelEditorMouseMove(event) {
 
 function onPixelEditorPaintEnd(event) {
   if (pixelEditorActiveTool === "select") {
-    if (pixelEditorSelDragMode === "new") {
+    if (pixelEditorSelectionDragMode === "new") {
       const coordsClamped = event ? getPixelEditorCoordsClamped(event) : null;
       if (
         !coordsClamped ||
-        (coordsClamped.px === pixelEditorSelDragStart.px && coordsClamped.py === pixelEditorSelDragStart.py)
+        (coordsClamped.px === pixelEditorSelectionDragStart.px && coordsClamped.py === pixelEditorSelectionDragStart.py)
       ) {
         // Click without drag: clear any float and deselect.
-        if (pixelEditorSelFloatCanvas) {
+        if (pixelEditorSelectionFloatCanvas) {
           commitSelectionFloat();
         }
         pixelEditorSelection = null;
         renderPixelEditorView();
       }
       // else: selection was finalized in onPixelEditorMouseMove; nothing extra to do.
-    } else if (pixelEditorSelDragMode === "move") {
+    } else if (pixelEditorSelectionDragMode === "move") {
       commitSelectionFloat();
       renderPixelEditorView();
     }
     // resize: selection already updated in mousemove; nothing extra needed.
-    pixelEditorSelDragMode = null;
-    pixelEditorSelDragStart = null;
-    pixelEditorSelDragOrigSel = null;
+    pixelEditorSelectionDragMode = null;
+    pixelEditorSelectionDragStart = null;
+    pixelEditorSelectionDragOrigSel = null;
     return;
   }
 
