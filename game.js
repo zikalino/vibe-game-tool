@@ -174,7 +174,7 @@ let pixelEditorShapeStart = null;
 let pixelEditorShapeSnapshot = null;
 let pixelEditorSelection = null;                  // { x, y, w, h } in tile pixel coords, null = no selection
 let pixelEditorSelectionClipboard = null;         // HTMLCanvasElement with copied pixels
-let pixelEditorSelectionDragMode = null;          // "new"|"move"|"resize-nw"|"resize-n"|"resize-ne"|"resize-e"|"resize-se"|"resize-s"|"resize-sw"|"resize-w"
+let pixelEditorSelectionDragMode = null;          // null, "new", "move", or "resize-" + direction ("nw","n","ne","e","se","s","sw","w")
 let pixelEditorSelectionDragStart = null;         // { px, py } tile pixel coords at drag start
 let pixelEditorSelectionDragOrigSel = null;       // { x, y, w, h } selection at drag start
 let pixelEditorSelectionFloatCanvas = null;       // HTMLCanvasElement with floating pixels (during move)
@@ -904,8 +904,8 @@ function renderSelectionOverlay(editorCtx) {
   editorCtx.setLineDash([]);
 
   const l = sx, t = sy, r = sx + sw, b = sy + sh;
-  const hmx = (l + r) / 2, hmy = (t + b) / 2;
-  for (const [hx, hy] of [[l, t], [hmx, t], [r, t], [r, hmy], [r, b], [hmx, b], [l, b], [l, hmy]]) {
+  const midX = (l + r) / 2, midY = (t + b) / 2;
+  for (const [hx, hy] of [[l, t], [midX, t], [r, t], [r, midY], [r, b], [midX, b], [l, b], [l, midY]]) {
     editorCtx.fillStyle = "#fff";
     editorCtx.fillRect(hx - 3, hy - 3, 6, 6);
     editorCtx.strokeStyle = "#000";
@@ -1209,10 +1209,10 @@ function onPixelEditorPaintEnd(event) {
   if (pixelEditorActiveTool === "select") {
     if (pixelEditorSelectionDragMode === "new") {
       const coordsClamped = event ? getPixelEditorCoordsClamped(event) : null;
-      if (
-        !coordsClamped ||
-        (coordsClamped.px === pixelEditorSelectionDragStart.px && coordsClamped.py === pixelEditorSelectionDragStart.py)
-      ) {
+      const noMovement = !coordsClamped ||
+        (coordsClamped.px === pixelEditorSelectionDragStart.px &&
+         coordsClamped.py === pixelEditorSelectionDragStart.py);
+      if (noMovement) {
         // Click without drag: clear any float and deselect.
         if (pixelEditorSelectionFloatCanvas) {
           commitSelectionFloat();
