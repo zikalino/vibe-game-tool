@@ -53,6 +53,8 @@ const DROWN_THRESHOLD = 0.65;
 const DROWN_LIMIT = 120;
 const GITHUB_OAUTH_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
 const GITHUB_TOKEN_ERROR_SUMMARY_MAX_LENGTH = 180;
+const PORTAL_TOKEN_KEY = "vgPortal.token";
+const PORTAL_USER_KEY = "vgPortal.user";
 const ROCK_STEP_FRAMES_1X = 2;
 const MONSTER_STEP_FRAMES_1X = 3;
 const DEFAULT_TRANSITION_FRAMES = 1;
@@ -96,11 +98,13 @@ const mapResizeEl = document.querySelector(".map-resize");
 const gameWrapEl = document.querySelector(".game-wrap");
 const githubClientMetaEl = document.querySelector('meta[name="github-client-id"]');
 const githubTokenExchangeMetaEl = document.querySelector('meta[name="github-token-exchange-url"]');
+const portalUrlMetaEl = document.querySelector('meta[name="portal-url"]');
 const githubClientId = resolveGitHubClientId(githubClientMetaEl?.content, window.VIBE_GITHUB_CLIENT_ID);
 const githubTokenExchangeUrl = resolveGitHubTokenExchangeUrl(
   githubTokenExchangeMetaEl?.content,
   window.VIBE_GITHUB_TOKEN_EXCHANGE_URL,
 );
+const portalUrl = portalUrlMetaEl?.content?.trim() || "/portal";
 const githubAuthUnavailableMessage = getGitHubAuthUnavailableMessage();
 const pixelEditorEl = document.getElementById("pixelEditor");
 const pixelEditorTitleEl = document.getElementById("pixelEditorTitle");
@@ -1594,11 +1598,10 @@ function onGitHubAuthClick() {
     return;
   }
 
-  beginGitHubAuth().catch((error) => {
-    console.error("GitHub auth start failed:", error);
-    isGitHubAuthLoading = false;
-    refreshGitHubAuthUi("Failed to start GitHub authentication.");
-  });
+  // Delegate authentication to the portal, which handles the full OAuth flow
+  // and stores a domain-wide JWT that both the portal and this page can use.
+  const returnTo = encodeURIComponent(window.location.href);
+  window.location.assign(portalUrl + "?returnTo=" + returnTo);
 }
 
 function cloneWorld(src) {
@@ -1682,6 +1685,24 @@ async function initializeGitHubAuth() {
 function restoreGitHubAuthFromSession() {
   const raw = sessionStorage.getItem(GITHUB_AUTH_STORAGE_KEY);
   if (!raw) {
+    // Fall back to the portal token stored in localStorage (shared across the domain).
+    const portalToken = localStorage.getItem(PORTAL_TOKEN_KEY);
+    if (portalToken) {
+      try {
+        const portalUserRaw = localStorage.getItem(PORTAL_USER_KEY);
+        const user = portalUserRaw ? JSON.parse(portalUserRaw) : null;
+        gameContext.githubAuth = {
+          accessToken: portalToken,
+          tokenType: "Bearer",
+          scope: "",
+          user,
+          authenticatedAt: Date.now(),
+        };
+        return;
+      } catch {
+        // ignore corrupt user data and fall through to null
+      }
+    }
     gameContext.githubAuth = null;
     return;
   }

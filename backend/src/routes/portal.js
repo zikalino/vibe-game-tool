@@ -138,6 +138,7 @@ function buildPortalHtml(clientId) {
 
     // ── Auth state ────────────────────────────────────────────────────────────
     const TOKEN_KEY = 'vgPortal.token';
+    const USER_KEY  = 'vgPortal.user';
     let token = localStorage.getItem(TOKEN_KEY);
 
     async function startLogin() {
@@ -155,7 +156,9 @@ function buildPortalHtml(clientId) {
       // imported here because this code is inlined into a server-rendered HTML
       // template.
       const redirectUri = window.location.origin + (window.location.pathname === '/' ? '' : window.location.pathname);
-      sessionStorage.setItem('vgPortal.pending', JSON.stringify({ state, verifier, redirectUri }));
+      // Preserve any returnTo param so we can redirect back after auth completes.
+      const returnTo = new URLSearchParams(window.location.search).get('returnTo') || null;
+      sessionStorage.setItem('vgPortal.pending', JSON.stringify({ state, verifier, redirectUri, returnTo }));
       const url = new URL('https://github.com/login/oauth/authorize');
       url.searchParams.set('client_id', GH_CLIENT_ID);
       url.searchParams.set('redirect_uri', redirectUri);
@@ -167,6 +170,7 @@ function buildPortalHtml(clientId) {
 
     function logout() {
       localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
       token = null;
       render();
     }
@@ -192,6 +196,13 @@ function buildPortalHtml(clientId) {
       if (d.token) {
         token = d.token;
         localStorage.setItem(TOKEN_KEY, token);
+        if (d.user) {
+          localStorage.setItem(USER_KEY, JSON.stringify(d.user));
+        }
+        if (pending.returnTo) {
+          window.location.assign(pending.returnTo);
+          return;
+        }
       } else {
         showError('Authentication failed: ' + (d.error || 'unknown error'));
       }

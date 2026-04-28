@@ -87,10 +87,8 @@ Then fill in each variable as described below.
 2. Fill in the form:
    - **Application name** — any name, e.g. `vibe-game-tool`
    - **Homepage URL** — your server URL, e.g. `https://game.example.com`
-   - **Authorization callback URL** — add **both** of the following (one per line, or
-     register them as separate OAuth Apps):
-     - `https://game.example.com` — for the in-game login flow
-     - `https://game.example.com/portal` — for the user artifact portal
+   - **Authorization callback URL** — only one entry is required:
+     - `https://game.example.com/portal` — both the portal and the in-game login button use this URL
 3. Click **Register application**.
 4. Copy the **Client ID** → set as `GH_CLIENT_ID` in `deploy/.env`.
 5. Click **Generate a new client secret**, copy the value → set as `GH_CLIENT_SECRET` in `deploy/.env`.
@@ -129,7 +127,7 @@ Authenticated users can store named **map** and **tile** artifacts through the R
 
 Visit `https://DOMAIN/portal` in any browser. Click **Login with GitHub** to authenticate. After sign-in you will see two sections — **Maps** and **Tiles** — listing all artifacts you have stored.
 
-> **Important:** The portal uses `https://DOMAIN/portal` as the OAuth redirect URI. This exact URL must be registered as an **Authorization callback URL** in your GitHub OAuth App settings (in addition to `https://DOMAIN` for the in-game login). If it is missing, GitHub will display a *"The redirect_uri is not associated with this application"* warning. See [Create a GitHub OAuth App](#3-create-a-github-oauth-app) for the full setup steps.
+> **Important:** The portal uses `https://DOMAIN/portal` as the OAuth redirect URI. This exact URL must be registered as an **Authorization callback URL** in your GitHub OAuth App settings. The in-game **Authenticate with GitHub** button now redirects to the portal for authentication, so `https://DOMAIN` no longer needs to be registered separately. After authenticating in the portal, the JWT is stored domain-wide in `localStorage` and is automatically recognised by the game when you navigate back to it. See [Create a GitHub OAuth App](#3-create-a-github-oauth-app) for the full setup steps.
 
 ### Artifact REST API
 
