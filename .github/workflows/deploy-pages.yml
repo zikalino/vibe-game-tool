@@ -24,6 +24,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure backend URL for GitHub Pages
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+        run: |
+          if [ -n "${BACKEND_URL}" ]; then
+            BACKEND_URL="${BACKEND_URL%/}"
+            TOKEN_PATH="/api/github/oauth/access_token"
+            sed -i "s|content=\"${TOKEN_PATH}\"|content=\"${BACKEND_URL}${TOKEN_PATH}\"|g" index.html
+            echo "Token exchange URL configured: ${BACKEND_URL}${TOKEN_PATH}"
+          else
+            echo "WARNING: BACKEND_URL secret is not set. GitHub auth token exchange will fail when served from GitHub Pages because the relative URL /api/github/oauth/access_token cannot reach the backend."
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
