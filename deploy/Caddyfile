@@ -1,4 +1,4 @@
-{$DOMAIN} {
+{$CADDY_DOMAIN} {
     handle /api/* {
         reverse_proxy backend:3000
     }
@@ -11,4 +11,12 @@
         root * /srv/www
         file_server
     }
+}
+
+# Plain HTTP fallback — serves the game's static files for any HTTP request
+# that does not match the primary site (e.g. direct IP access in the browser
+# before DNS is configured, or when DOMAIN is set to an IP address).
+http:// {
+    root * /srv/www
+    file_server
 }

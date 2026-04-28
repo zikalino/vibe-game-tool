@@ -94,7 +94,40 @@ check_env() {
 }
 
 # ---------------------------------------------------------------------------
-# 4. Start the stack
+# 4. Derive CADDY_DOMAIN from DOMAIN
+# ---------------------------------------------------------------------------
+# Caddy cannot obtain a public TLS certificate for a bare IP address and will
+# fall back to its internal (self-signed) CA, which browsers reject with an
+# SSL error.  When DOMAIN looks like an IPv4 address we therefore prefix it
+# with "http://" so that Caddy serves the site over plain HTTP instead.
+# For proper hostnames Caddy's automatic HTTPS continues to work unchanged.
+# ---------------------------------------------------------------------------
+set_caddy_domain() {
+  local env_file="${DEPLOY_DIR}/.env"
+  local domain
+  domain=$(grep -E "^DOMAIN=" "${env_file}" | cut -d= -f2- | tr -d '[:space:]')
+
+  # If CADDY_DOMAIN is already present in .env, respect it and leave it alone.
+  if grep -q "^CADDY_DOMAIN=" "${env_file}" 2>/dev/null; then
+    echo "✓ CADDY_DOMAIN already set in ${env_file}"
+    return
+  fi
+
+  local caddy_domain
+  if [[ "${domain}" =~ ^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$ ]]; then
+    echo "→ DOMAIN is a bare IP address; configuring Caddy for plain HTTP"
+    caddy_domain="http://${domain}"
+  else
+    caddy_domain="${domain}"
+  fi
+
+  echo "CADDY_DOMAIN=${caddy_domain}" >> "${env_file}"
+  echo "✓ CADDY_DOMAIN=${caddy_domain}"
+}
+
+
+# ---------------------------------------------------------------------------
+# 5. Start the stack
 # ---------------------------------------------------------------------------
 start_stack() {
   echo "→ Building and starting Docker Compose stack..."
@@ -104,7 +137,7 @@ start_stack() {
 }
 
 # ---------------------------------------------------------------------------
-# 5. Print status and URL
+# 6. Print status and URL
 # ---------------------------------------------------------------------------
 print_status() {
   cd "${DEPLOY_DIR}"
@@ -113,11 +146,22 @@ print_status() {
   docker compose ps
   echo ""
 
-  local domain
-  domain=$(grep -E "^DOMAIN=" "${DEPLOY_DIR}/.env" | cut -d= -f2- | tr -d '[:space:]')
+  local caddy_domain
+  caddy_domain=$(grep -E "^CADDY_DOMAIN=" "${DEPLOY_DIR}/.env" | cut -d= -f2- | tr -d '[:space:]')
+
+  # Determine the public URL from CADDY_DOMAIN.
+  # If CADDY_DOMAIN already starts with "http://" (bare-IP deployment) use it
+  # directly; otherwise assume HTTPS.
+  local service_url
+  if [[ "${caddy_domain}" == http://* ]]; then
+    service_url="${caddy_domain}"
+  else
+    service_url="https://${caddy_domain}"
+  fi
+
   echo "=== Deployment complete ==="
-  echo "  Service URL : https://${domain}"
-  echo "  Health check: https://${domain}/health"
+  echo "  Service URL : ${service_url}"
+  echo "  Health check: ${service_url%/}/health"
   echo "  Logs        : docker compose -f ${DEPLOY_DIR}/docker-compose.yml logs -f"
   echo ""
 }
@@ -133,5 +177,6 @@ fi
 install_docker
 clone_or_pull
 check_env
+set_caddy_domain
 start_stack
 print_status

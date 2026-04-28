@@ -19,12 +19,13 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # Capture the host key so StrictHostKeyChecking passes; retry until SSH is ready
-          SERVER_IP="${{ secrets.DOMAIN }}"
-          echo "Waiting for SSH on ${SERVER_IP}..."
+          # VM_HOST is the IP/hostname used for SSH.
+          # Falls back to DOMAIN when VM_HOST is not set (backward compatibility).
+          VM_HOST="${{ secrets.VM_HOST || secrets.DOMAIN }}"
+          echo "Waiting for SSH on ${VM_HOST}..."
           SSH_READY=0
           for i in $(seq 1 20); do
-            if ssh-keyscan -H "${SERVER_IP}" >> ~/.ssh/known_hosts 2>/dev/null; then
+            if ssh-keyscan -H "${VM_HOST}" >> ~/.ssh/known_hosts 2>/dev/null; then
               echo "SSH is ready"
               SSH_READY=1
               break
@@ -33,13 +34,14 @@ jobs:
             sleep 10
           done
           if [ "${SSH_READY}" -eq 0 ]; then
-            echo "ERROR: SSH did not become available on ${SERVER_IP} within timeout (200 seconds)"
+            echo "ERROR: SSH did not become available on ${VM_HOST} within timeout (200 seconds)"
             exit 1
           fi
 
       - name: Clone or update repository on server
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.DOMAIN }} bash << 'ENDSSH'
+          VM_HOST="${{ secrets.VM_HOST || secrets.DOMAIN }}"
+          ssh -i ~/.ssh/deploy_key root@${VM_HOST} bash << 'ENDSSH'
             set -euo pipefail
             REPO_URL="${{ github.server_url }}/${{ github.repository }}.git"
             REPO_DIR="/opt/vibe-game-tool"
@@ -58,7 +60,17 @@ jobs:
           GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           DOMAIN: ${{ secrets.DOMAIN }}
+          VM_HOST: ${{ secrets.VM_HOST || secrets.DOMAIN }}
         run: |
+          # Determine CADDY_DOMAIN: prefix with http:// for bare IP addresses so
+          # that Caddy serves over plain HTTP instead of trying to obtain a TLS
+          # certificate (which would fail for IPs and produce ERR_SSL_PROTOCOL_ERROR).
+          if [[ "${DOMAIN}" =~ ^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$ ]]; then
+            CADDY_DOMAIN="http://${DOMAIN}"
+          else
+            CADDY_DOMAIN="${DOMAIN}"
+          fi
+
           # Write secrets to a local temp file then transfer via scp to avoid
           # exposing values in the remote command string or process list.
           TMPENV=$(mktemp)
@@ -68,12 +80,14 @@ jobs:
             printf 'GH_CLIENT_SECRET=%s\n' "${GH_CLIENT_SECRET}"
             printf 'JWT_SECRET=%s\n'       "${JWT_SECRET}"
             printf 'DOMAIN=%s\n'           "${DOMAIN}"
+            printf 'CADDY_DOMAIN=%s\n'     "${CADDY_DOMAIN}"
             printf 'DATABASE_URL=%s\n'     "sqlite:///app/data/app.db"
           } > "${TMPENV}"
           scp -i ~/.ssh/deploy_key "${TMPENV}" \
-            root@${{ secrets.DOMAIN }}:/opt/vibe-game-tool/deploy/.env
+            root@${VM_HOST}:/opt/vibe-game-tool/deploy/.env
 
       - name: Run deploy script on server
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.DOMAIN }} \
+          VM_HOST="${{ secrets.VM_HOST || secrets.DOMAIN }}"
+          ssh -i ~/.ssh/deploy_key root@${VM_HOST} \
             "bash /opt/vibe-game-tool/deploy/deploy.sh"
