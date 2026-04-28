@@ -16,7 +16,27 @@ If your browser blocks direct token exchange to `https://github.com/login/oauth/
 - `<meta name="github-token-exchange-url" content="/api/github/oauth/access_token">` in `index.html`, or
 - `window.VIBE_GITHUB_TOKEN_EXCHANGE_URL = "/api/github/oauth/access_token"` before `game.js` loads.
 
-## GitHub Pages + backend deployment
+## GitHub Actions deployment
+
+The `Deploy Backend to Ubuntu VM` workflow (`deploy-backend.yml`) deploys the stack to an UpCloud (or any Ubuntu) VM via SSH.
+
+### Required secrets
+
+| Secret | Description |
+|---|---|
+| `DEPLOY_SSH_KEY` | Private SSH key with root access to the VM. |
+| `GH_CLIENT_ID` | GitHub OAuth App Client ID. |
+| `GH_CLIENT_SECRET` | GitHub OAuth App Client Secret. |
+| `JWT_SECRET` | 32-byte hex JWT signing secret. |
+| `DOMAIN` | Public hostname or IP of the VM (written to `deploy/.env` and used by Caddy). |
+
+### Optional secrets
+
+| Secret | Description |
+|---|---|
+| `VM_HOST` | IP address or hostname used **only** for the SSH connection.  Set this when `DOMAIN` is a proper hostname that is not yet resolvable from the GitHub Actions runner (e.g. during initial setup).  Falls back to `DOMAIN` when not set. |
+
+
 
 When the game is served from GitHub Pages **and** the backend runs on a separate server, you must tell the frontend where to reach the backend for OAuth token exchange. GitHub Pages only serves static files; it returns **405 Method Not Allowed** for any POST request, so the default relative URL (`/api/github/oauth/access_token`) will not work.
 
@@ -51,7 +71,14 @@ Then fill in each variable as described below.
 | `GH_CLIENT_ID` | Client ID of your GitHub OAuth App (see below). |
 | `GH_CLIENT_SECRET` | Client Secret of your GitHub OAuth App (see below). |
 | `JWT_SECRET` | A random 32-byte hex string used to sign JWTs. Generate with `openssl rand -hex 32`. **Treat this like a password — never share it.** |
-| `DOMAIN` | Public hostname of your server (e.g. `game.example.com`). Caddy uses this to obtain a TLS certificate automatically. Both the game and the API will be served from this domain. |
+| `DOMAIN` | Public hostname **or** IP address of your server (e.g. `game.example.com` or `203.0.113.10`). See note below about HTTP vs HTTPS. |
+
+> **Domain vs IP address**
+>
+> * **Hostname** (`game.example.com`) — Caddy automatically obtains a free TLS certificate via Let's Encrypt and serves the game over **HTTPS**.  DNS for the hostname must already point to the server.
+> * **Bare IP address** (`203.0.113.10`) — Caddy cannot obtain a public certificate for an IP address.  The deploy script detects this automatically and configures Caddy to serve over plain **HTTP** on port 80 instead.  Connecting to `http://203.0.113.10` in a browser will show the game.  (GitHub OAuth will still work; the callback URL just has to be `http://…` in your OAuth App settings.)
+>
+> When you later point a real domain at the server, update `DOMAIN` to the hostname and re-run the deploy script to upgrade to HTTPS.
 
 ### 3. Create a GitHub OAuth App
 
@@ -92,7 +119,7 @@ Paste the output as the value of `JWT_SECRET` in `deploy/.env`.
 sudo bash deploy/deploy.sh
 ```
 
-The script installs Docker, clones/updates the repository on the server, validates `deploy/.env`, and starts the Docker Compose stack. Caddy serves the game's static files at `https://DOMAIN/` and proxies all `/api/*` requests to the backend.
+The script installs Docker, clones/updates the repository on the server, validates `deploy/.env`, and starts the Docker Compose stack. Caddy serves the game's static files and proxies all `/api/*` requests to the backend.  If `DOMAIN` is a hostname the game is served at `https://DOMAIN/`; if it is a bare IP address it is served at `http://IP/` over plain HTTP.
 
 ## Artifact storage and user portal
 
