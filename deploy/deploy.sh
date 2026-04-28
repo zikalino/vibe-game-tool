@@ -107,12 +107,6 @@ set_caddy_domain() {
   local domain
   domain=$(grep -E "^DOMAIN=" "${env_file}" | cut -d= -f2- | tr -d '[:space:]')
 
-  # If CADDY_DOMAIN is already present in .env, respect it and leave it alone.
-  if grep -q "^CADDY_DOMAIN=" "${env_file}" 2>/dev/null; then
-    echo "✓ CADDY_DOMAIN already set in ${env_file}"
-    return
-  fi
-
   local caddy_domain
   if [[ "${domain}" =~ ^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$ ]]; then
     echo "→ DOMAIN is a bare IP address; configuring Caddy for plain HTTP"
@@ -121,7 +115,13 @@ set_caddy_domain() {
     caddy_domain="${domain}"
   fi
 
-  echo "CADDY_DOMAIN=${caddy_domain}" >> "${env_file}"
+  # Always update CADDY_DOMAIN so that a changed DOMAIN value is picked up on
+  # re-deploy (e.g. when migrating from a bare IP to a proper domain name).
+  if grep -q "^CADDY_DOMAIN=" "${env_file}" 2>/dev/null; then
+    sed -i "s|^CADDY_DOMAIN=.*|CADDY_DOMAIN=${caddy_domain}|" "${env_file}"
+  else
+    echo "CADDY_DOMAIN=${caddy_domain}" >> "${env_file}"
+  fi
   echo "✓ CADDY_DOMAIN=${caddy_domain}"
 }
 
