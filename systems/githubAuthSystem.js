@@ -125,6 +125,21 @@ export function resolveGitHubTokenExchangeUrl(metaTokenExchangeUrl, windowTokenE
   return normalizeConfigValue(metaTokenExchangeUrl) || normalizeConfigValue(windowTokenExchangeUrl);
 }
 
+/**
+ * Build the OAuth redirect URI from a location-like object.
+ * The trailing slash on the root path (`pathname === "/"`) is removed so that
+ * the resulting URI (`https://example.com`) matches the callback URL that
+ * operators are instructed to register in their GitHub OAuth App — without a
+ * trailing slash.  Sub-paths such as `/portal` are left unchanged.
+ *
+ * @param {{ origin: string, pathname: string }} location  – `window.location` or equivalent
+ * @returns {string}
+ */
+export function buildOAuthRedirectUri(location) {
+  const pathname = location.pathname === "/" ? "" : location.pathname;
+  return location.origin + pathname;
+}
+
 export function isGitHubAuthSession(auth) {
   return Boolean(
     auth

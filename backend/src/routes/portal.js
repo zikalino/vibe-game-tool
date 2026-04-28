@@ -148,7 +148,13 @@ function buildPortalHtml(clientId) {
       const verifier = createVerifier();
       const challenge = await createChallenge(verifier);
       const state = createVerifier(40);
-      const redirectUri = window.location.origin + window.location.pathname;
+      // Strip the trailing slash on the root path so the URI matches what
+      // operators register in their GitHub OAuth App (e.g. "https://example.com"
+      // not "https://example.com/").  The equivalent logic lives in
+      // systems/githubAuthSystem.js (buildOAuthRedirectUri) but cannot be
+      // imported here because this code is inlined into a server-rendered HTML
+      // template.
+      const redirectUri = window.location.origin + (window.location.pathname === '/' ? '' : window.location.pathname);
       sessionStorage.setItem('vgPortal.pending', JSON.stringify({ state, verifier, redirectUri }));
       const url = new URL('https://github.com/login/oauth/authorize');
       url.searchParams.set('client_id', GH_CLIENT_ID);
