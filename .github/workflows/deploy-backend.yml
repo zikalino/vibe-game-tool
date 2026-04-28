@@ -61,8 +61,8 @@ jobs:
         env:
           GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
           GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
-          BACKEND_JWT_SECRET: ${{ secrets.BACKEND_JWT_SECRET }}
-          BACKEND_DOMAIN: ${{ secrets.BACKEND_DOMAIN }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          DOMAIN: ${{ secrets.DOMAIN }}
         run: |
           # Write secrets to a local temp file then transfer via scp to avoid
           # exposing values in the remote command string or process list.
@@ -71,8 +71,8 @@ jobs:
           {
             printf 'GH_CLIENT_ID=%s\n'     "${GH_CLIENT_ID}"
             printf 'GH_CLIENT_SECRET=%s\n' "${GH_CLIENT_SECRET}"
-            printf 'JWT_SECRET=%s\n'       "${BACKEND_JWT_SECRET}"
-            printf 'DOMAIN=%s\n'           "${BACKEND_DOMAIN}"
+            printf 'JWT_SECRET=%s\n'       "${JWT_SECRET}"
+            printf 'DOMAIN=%s\n'           "${DOMAIN}"
             printf 'DATABASE_URL=%s\n'     "sqlite:///app/data/app.db"
           } > "${TMPENV}"
           scp -i ~/.ssh/deploy_key "${TMPENV}" \
