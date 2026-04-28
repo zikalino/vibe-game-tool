@@ -91,6 +91,7 @@ const editBtn = document.getElementById("editBtn");
 const tickIntervalSelectEl = document.getElementById("tickIntervalSelect");
 const githubAuthBtn = document.getElementById("githubAuthBtn");
 const githubAuthStatusEl = document.getElementById("githubAuthStatus");
+const saveMapBtn = document.getElementById("saveMapBtn");
 const exitPlayBtn = document.getElementById("exitPlayBtn");
 const edgeControlsEl = document.getElementById("edgeControls");
 const touchControlsEl = document.getElementById("touchControls");
@@ -206,6 +207,7 @@ editBtn.addEventListener("click", startEdit);
 tickIntervalSelectEl.addEventListener("change", onTickIntervalChange);
 githubAuthBtn.addEventListener("click", onGitHubAuthClick);
 exitPlayBtn.addEventListener("click", startEdit);
+saveMapBtn.addEventListener("click", onSaveMapClick);
 edgeControlsEl.addEventListener("click", onExpandEdgeClick);
 touchControlsEl.addEventListener("pointerdown", onTouchControlPointerDown);
 new ResizeObserver(onMapResize).observe(mapResizeEl);
@@ -1604,6 +1606,58 @@ function onGitHubAuthClick() {
   window.location.assign(portalUrl + "?returnTo=" + returnTo);
 }
 
+async function onSaveMapClick() {
+  if (!isGitHubAuthSession(gameContext.githubAuth)) {
+    return;
+  }
+
+  const name = window.prompt("Enter a name for this map:");
+  if (!name || !name.trim()) {
+    return;
+  }
+
+  saveMapBtn.disabled = true;
+  saveMapBtn.textContent = "Saving…";
+
+  try {
+    const data = serializeWorldMap();
+    const response = await fetch("/api/artifacts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `${gameContext.githubAuth.tokenType} ${gameContext.githubAuth.accessToken}`,
+      },
+      body: JSON.stringify({ name: name.trim(), type: "map", data }),
+    });
+
+    if (response.ok) {
+      if (githubAuthStatusEl) {
+        githubAuthStatusEl.textContent = `Map "${name.trim()}" saved successfully.`;
+      }
+    } else {
+      const err = await response.json().catch(() => ({}));
+      const reason = err.error || `HTTP ${response.status}`;
+      if (githubAuthStatusEl) {
+        githubAuthStatusEl.textContent = `Save failed: ${reason}`;
+      }
+    }
+  } catch (error) {
+    if (githubAuthStatusEl) {
+      githubAuthStatusEl.textContent = `Save failed: ${error.message || "network error"}`;
+    }
+  } finally {
+    saveMapBtn.disabled = false;
+    saveMapBtn.textContent = "💾 Save Map";
+  }
+}
+
+function serializeWorldMap() {
+  const tiles = world.map((row) =>
+    row.map(({ transDx, transDy, transProgress, ...rest }) => rest),
+  );
+  return { cols: COLS, rows: ROWS, tiles };
+}
+
 function cloneWorld(src) {
   return src.map((row) => row.map((tile) => ({ ...tile })));
 }
@@ -1872,6 +1926,7 @@ function escapeHtmlEntities(value) {
 function refreshGitHubAuthUi(errorMessage = "") {
   const hasGitHubAuthSession = isGitHubAuthSession(gameContext.githubAuth);
   githubAuthBtn.classList.toggle("hidden", hasGitHubAuthSession && !isGitHubAuthLoading);
+  saveMapBtn.classList.toggle("hidden", !hasGitHubAuthSession || isGitHubAuthLoading);
 
   if (isGitHubAuthLoading) {
     githubAuthBtn.textContent = "Authenticating…";
