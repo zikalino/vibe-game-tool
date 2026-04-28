@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   buildGitHubAuthorizeUrl,
+  buildOAuthRedirectUri,
   createPkceChallenge,
   createPkceVerifier,
   formatGitHubCallbackDiagnostics,
@@ -135,5 +136,26 @@ test("getGitHubAuthUnavailableMessage explains missing configuration", () => {
   assert.equal(
     getGitHubAuthUnavailableMessage(),
     "GitHub auth unavailable: missing GitHub OAuth client ID. Set the github-client-id meta tag or window.VIBE_GITHUB_CLIENT_ID.",
+  );
+});
+
+test("buildOAuthRedirectUri omits trailing slash for root path", () => {
+  assert.equal(
+    buildOAuthRedirectUri({ origin: "https://smartercode.eu", pathname: "/" }),
+    "https://smartercode.eu",
+  );
+});
+
+test("buildOAuthRedirectUri preserves sub-path without trailing slash", () => {
+  assert.equal(
+    buildOAuthRedirectUri({ origin: "https://smartercode.eu", pathname: "/portal" }),
+    "https://smartercode.eu/portal",
+  );
+});
+
+test("buildOAuthRedirectUri handles deeply nested paths", () => {
+  assert.equal(
+    buildOAuthRedirectUri({ origin: "https://example.com", pathname: "/app/game" }),
+    "https://example.com/app/game",
   );
 });

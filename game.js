@@ -25,6 +25,7 @@ import {
   GITHUB_AUTH_PENDING_KEY,
   GITHUB_AUTH_STORAGE_KEY,
   buildGitHubAuthorizeUrl,
+  buildOAuthRedirectUri,
   createPkceChallenge,
   createPkceVerifier,
   formatGitHubCallbackDiagnostics,
@@ -1732,7 +1733,7 @@ async function beginGitHubAuth() {
   const codeVerifier = createPkceVerifier();
   const codeChallenge = await createPkceChallenge(codeVerifier);
   const state = createPkceVerifier(40);
-  const redirectUri = `${window.location.origin}${window.location.pathname}`;
+  const redirectUri = buildOAuthRedirectUri(window.location);
   sessionStorage.setItem(GITHUB_AUTH_PENDING_KEY, JSON.stringify({
     state,
     codeVerifier,
