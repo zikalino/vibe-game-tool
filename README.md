@@ -48,7 +48,7 @@ Set the `BACKEND_URL` secret in your GitHub repository (**Settings → Secrets a
 
 The `Deploy to GitHub Pages` workflow automatically rewrites the `github-token-exchange-url` meta tag in `index.html` to use `${BACKEND_URL}/api/github/oauth/access_token` before publishing. The backend must have CORS enabled so the GitHub Pages origin can reach it (the included Express backend allows all origins by default).
 
-> **Note:** Also register your GitHub Pages URL (e.g. `https://zikalino.github.io/vibe-game-tool`) as an **Authorization callback URL** in your GitHub OAuth App settings, since that is where GitHub will redirect users after they authorize.
+> **Note:** Also register your GitHub Pages URL (e.g. `https://zikalino.github.io/vibe-game-tool`) as an **Authorization callback URL** in your GitHub OAuth App settings, since that is where GitHub will redirect users after they authorize. If you are also running the self-hosted backend, add its portal URL too (e.g. `https://api.example.com/portal`) — see [Create a GitHub OAuth App](#3-create-a-github-oauth-app) below.
 
 ## Backend deployment configuration
 
@@ -128,6 +128,8 @@ Authenticated users can store named **map** and **tile** artifacts through the R
 ### User portal
 
 Visit `https://DOMAIN/portal` in any browser. Click **Login with GitHub** to authenticate. After sign-in you will see two sections — **Maps** and **Tiles** — listing all artifacts you have stored.
+
+> **Important:** The portal uses `https://DOMAIN/portal` as the OAuth redirect URI. This exact URL must be registered as an **Authorization callback URL** in your GitHub OAuth App settings (in addition to `https://DOMAIN` for the in-game login). If it is missing, GitHub will display a *"The redirect_uri is not associated with this application"* warning. See [Create a GitHub OAuth App](#3-create-a-github-oauth-app) for the full setup steps.
 
 ### Artifact REST API
 
