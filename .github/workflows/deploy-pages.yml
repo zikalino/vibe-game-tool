@@ -33,6 +33,9 @@ jobs:
             TOKEN_PATH="/api/github/oauth/access_token"
             sed -i "s|content=\"${TOKEN_PATH}\"|content=\"${BACKEND_URL}${TOKEN_PATH}\"|g" index.html
             echo "Token exchange URL configured: ${BACKEND_URL}${TOKEN_PATH}"
+            PORTAL_PATH="/portal"
+            sed -i "s|content=\"${PORTAL_PATH}\"|content=\"${BACKEND_URL}${PORTAL_PATH}\"|g" index.html
+            echo "Portal URL configured: ${BACKEND_URL}${PORTAL_PATH}"
           else
             echo "WARNING: BACKEND_URL secret is not set. GitHub auth token exchange will fail when served from GitHub Pages because the relative URL /api/github/oauth/access_token cannot reach the backend."
           fi
