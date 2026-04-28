@@ -89,7 +89,11 @@ test("resolveGitHubTokenExchangeUrl returns first non-empty trimmed value", () =
 test("formatGitHubTokenExchangeError returns readable diagnostics", () => {
   assert.equal(
     formatGitHubTokenExchangeError(new TypeError("Failed to fetch")),
-    "network request failed (possible CORS restriction or blocked token endpoint)",
+    "network request failed (possible CORS restriction or blocked token endpoint). Configure a same-origin proxy endpoint to avoid browser CORS restrictions (see README).",
+  );
+  assert.equal(
+    formatGitHubTokenExchangeError(new TypeError("Failed to fetch"), { proxyUrl: "/api/github/oauth/access_token" }),
+    "network request to /api/github/oauth/access_token failed (proxy endpoint unreachable or misconfigured)",
   );
   assert.equal(
     formatGitHubTokenExchangeError(new Error("bad_verification_code")),
