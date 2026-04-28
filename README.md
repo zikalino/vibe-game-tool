@@ -16,9 +16,23 @@ If your browser blocks direct token exchange to `https://github.com/login/oauth/
 - `<meta name="github-token-exchange-url" content="/api/github/oauth/access_token">` in `index.html`, or
 - `window.VIBE_GITHUB_TOKEN_EXCHANGE_URL = "/api/github/oauth/access_token"` before `game.js` loads.
 
+## GitHub Pages + backend deployment
+
+When the game is served from GitHub Pages **and** the backend runs on a separate server, you must tell the frontend where to reach the backend for OAuth token exchange. GitHub Pages only serves static files; it returns **405 Method Not Allowed** for any POST request, so the default relative URL (`/api/github/oauth/access_token`) will not work.
+
+Set the `BACKEND_URL` secret in your GitHub repository (**Settings → Secrets and variables → Actions → New repository secret**):
+
+| Secret | Value |
+|---|---|
+| `BACKEND_URL` | Base URL of your backend server, e.g. `https://api.example.com` |
+
+The `Deploy to GitHub Pages` workflow automatically rewrites the `github-token-exchange-url` meta tag in `index.html` to use `${BACKEND_URL}/api/github/oauth/access_token` before publishing. The backend must have CORS enabled so the GitHub Pages origin can reach it (the included Express backend allows all origins by default).
+
+> **Note:** Also register your GitHub Pages URL (e.g. `https://zikalino.github.io/vibe-game-tool`) as an **Authorization callback URL** in your GitHub OAuth App settings, since that is where GitHub will redirect users after they authorize.
+
 ## Backend deployment configuration
 
-The backend acts as a proxy for GitHub OAuth token exchange (browsers cannot call `github.com/login/oauth/access_token` directly due to CORS). The deployment serves the game's static files **and** the API from the same domain via Caddy, so the `github-token-exchange-url` relative path in `index.html` always resolves correctly.
+The backend acts as a proxy for GitHub OAuth token exchange (browsers cannot call `github.com/login/oauth/access_token` directly due to CORS). When using the self-hosted Docker/Caddy stack the deployment serves the game's static files **and** the API from the same domain, so the `github-token-exchange-url` relative path in `index.html` resolves correctly without any additional configuration.
 
 Before running `deploy/deploy.sh` you must create a `deploy/.env` file with all required values.
 
