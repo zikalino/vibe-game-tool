@@ -20,6 +20,7 @@ db.exec(`
     login       TEXT    NOT NULL,
     name        TEXT,
     avatar_url  TEXT,
+    is_sponsor  INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
     updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
   );
@@ -44,14 +45,22 @@ db.exec(`
   );
 `);
 
+// Migrate: add is_sponsor column if it does not yet exist (existing databases)
+try {
+  db.exec("ALTER TABLE users ADD COLUMN is_sponsor INTEGER NOT NULL DEFAULT 0");
+} catch (err) {
+  if (!err.message.includes("duplicate column name")) throw err;
+}
+
 export const upsertUser = db.transaction((profile) => {
   db.prepare(`
-    INSERT INTO users (github_id, login, name, avatar_url, updated_at)
-    VALUES (@github_id, @login, @name, @avatar_url, datetime('now'))
+    INSERT INTO users (github_id, login, name, avatar_url, is_sponsor, updated_at)
+    VALUES (@github_id, @login, @name, @avatar_url, @is_sponsor, datetime('now'))
     ON CONFLICT (github_id) DO UPDATE SET
       login      = excluded.login,
       name       = excluded.name,
       avatar_url = excluded.avatar_url,
+      is_sponsor = excluded.is_sponsor,
       updated_at = excluded.updated_at
   `).run(profile);
 

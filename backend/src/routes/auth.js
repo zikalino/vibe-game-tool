@@ -8,6 +8,7 @@ const router = Router();
 const GITHUB_CLIENT_ID = process.env.GH_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GH_CLIENT_SECRET;
 const JWT_SECRET = process.env.JWT_SECRET;
+const GH_SPONSOR_LOGIN = process.env.GH_SPONSOR_LOGIN || "";
 
 if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
   throw new Error("GH_CLIENT_ID and GH_CLIENT_SECRET environment variables are required");
@@ -80,11 +81,16 @@ router.post("/github", async (req, res) => {
   }
 
   // Upsert user and create JWT
+  const isSponsor = GH_SPONSOR_LOGIN
+    ? await checkSponsor(access_token, profile.login, GH_SPONSOR_LOGIN)
+    : false;
+
   const user = upsertUser({
     github_id: String(profile.id),
     login: profile.login,
     name: profile.name || null,
     avatar_url: profile.avatar_url || null,
+    is_sponsor: isSponsor ? 1 : 0,
   });
 
   const token = jwt.sign(
@@ -93,7 +99,36 @@ router.post("/github", async (req, res) => {
     { expiresIn: "30d" }
   );
 
-  return res.json({ token, user: { id: user.id, login: user.login, name: user.name, avatar_url: user.avatar_url } });
+  return res.json({ token, user: { id: user.id, login: user.login, name: user.name, avatar_url: user.avatar_url, is_sponsor: user.is_sponsor === 1 } });
 });
+
+/**
+ * Check whether `sponsorLogin` is an active GitHub sponsor of `ownerLogin`
+ * using the GitHub GraphQL API.  Returns false on any error so that auth
+ * always succeeds even if the sponsor check fails.
+ */
+async function checkSponsor(accessToken, sponsorLogin, ownerLogin) {
+  try {
+    const query = `query($owner:String!,$sponsor:String!){
+      user(login:$owner){ isSponsoredBy(accountLogin:$sponsor) }
+    }`;
+    const res = await fetch("https://api.github.com/graphql", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      body: JSON.stringify({ query, variables: { owner: ownerLogin, sponsor: sponsorLogin } }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data?.data?.user?.isSponsoredBy === true;
+  } catch (err) {
+    console.error("Sponsor check error:", err);
+    return false;
+  }
+}
 
 export default router;
