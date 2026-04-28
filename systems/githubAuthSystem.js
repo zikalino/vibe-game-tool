@@ -78,13 +78,16 @@ export function formatGitHubCallbackDiagnostics(callbackParams) {
   return `GitHub callback received (code: ${hasCode ? "yes" : "no"}, state: ${hasState ? "yes" : "no"}, error: ${error}).`;
 }
 
-export function formatGitHubTokenExchangeError(error) {
+export function formatGitHubTokenExchangeError(error, { proxyUrl } = {}) {
   const message = typeof error?.message === "string" ? error.message.trim() : "";
   if (!message) {
     return "unknown error";
   }
   if (message === "Failed to fetch") {
-    return "network request failed (possible CORS restriction or blocked token endpoint)";
+    if (proxyUrl) {
+      return `network request to ${proxyUrl} failed (proxy endpoint unreachable or misconfigured)`;
+    }
+    return "network request failed (possible CORS restriction or blocked token endpoint). Configure a same-origin proxy endpoint to avoid browser CORS restrictions (see README).";
   }
   return message;
 }

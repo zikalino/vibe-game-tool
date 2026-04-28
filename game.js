@@ -1668,7 +1668,7 @@ async function initializeGitHubAuth() {
     console.error("GitHub auth callback failed:", error);
     gameContext.githubAuth = null;
     sessionStorage.removeItem(GITHUB_AUTH_STORAGE_KEY);
-    const tokenExchangeError = formatGitHubTokenExchangeError(error);
+    const tokenExchangeError = formatGitHubTokenExchangeError(error, { proxyUrl: githubTokenExchangeUrl });
     failureMessage = `${callbackDiagnostics} GitHub auth failed while exchanging token: ${tokenExchangeError}.`;
     refreshGitHubAuthUi(failureMessage);
   } finally {
@@ -1761,60 +1761,45 @@ async function exchangeGitHubCodeForToken({
     state,
     code_verifier: codeVerifier,
   });
-  const tokenExchangeUrls = [];
-  if (githubTokenExchangeUrl) {
-    tokenExchangeUrls.push(githubTokenExchangeUrl);
-  }
-  tokenExchangeUrls.push(GITHUB_OAUTH_TOKEN_ENDPOINT);
+  // When a proxy URL is configured, use it exclusively — falling back to the direct
+  // GitHub endpoint is not useful because browsers always block that with CORS.
+  const tokenExchangeUrl = githubTokenExchangeUrl || GITHUB_OAUTH_TOKEN_ENDPOINT;
 
-  let lastError = new Error(`GitHub token exchange failed. Attempted endpoints: ${tokenExchangeUrls.join(", ")}`);
-  for (const tokenExchangeUrl of tokenExchangeUrls) {
-    try {
-      console.info(`Attempting GitHub token exchange via ${tokenExchangeUrl}.`);
-      const response = await fetch(tokenExchangeUrl, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: requestBody.toString(),
-      });
+  console.info(`Attempting GitHub token exchange via ${tokenExchangeUrl}.`);
+  const response = await fetch(tokenExchangeUrl, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: requestBody.toString(),
+  });
 
-      const responseText = await response.text();
+  const responseText = await response.text();
 
-      if (!response.ok) {
-        const errorData = parseGitHubTokenEndpointResponse(responseText);
-        const reason = errorData?.error_description
-          || errorData?.error
-          || summarizeGitHubTokenErrorBody(responseText)
-          || "unknown error";
-        throw new Error(`GitHub token endpoint failed (${response.status}): ${reason}`);
-      }
-
-      const data = parseGitHubTokenEndpointResponse(responseText, { warnOnParseError: true }) || {};
-      if (data.error) {
-        throw new Error(data.error_description || data.error);
-      }
-
-      if (!data.access_token) {
-        throw new Error("GitHub response did not include an access token.");
-      }
-
-      return {
-        accessToken: data.access_token,
-        tokenType: normalizeAuthTokenType(data.token_type || "bearer"),
-        scope: data.scope || "",
-      };
-    } catch (error) {
-      lastError = error;
-      if (tokenExchangeUrl === GITHUB_OAUTH_TOKEN_ENDPOINT) {
-        break;
-      }
-      console.warn(`GitHub token exchange via ${tokenExchangeUrl} failed; falling back to the next endpoint.`, error);
-    }
+  if (!response.ok) {
+    const errorData = parseGitHubTokenEndpointResponse(responseText);
+    const reason = errorData?.error_description
+      || errorData?.error
+      || summarizeGitHubTokenErrorBody(responseText)
+      || "unknown error";
+    throw new Error(`GitHub token endpoint failed (${response.status}): ${reason}`);
   }
 
-  throw lastError;
+  const data = parseGitHubTokenEndpointResponse(responseText, { warnOnParseError: true }) || {};
+  if (data.error) {
+    throw new Error(data.error_description || data.error);
+  }
+
+  if (!data.access_token) {
+    throw new Error("GitHub response did not include an access token.");
+  }
+
+  return {
+    accessToken: data.access_token,
+    tokenType: normalizeAuthTokenType(data.token_type || "bearer"),
+    scope: data.scope || "",
+  };
 }
 
 async function fetchGitHubUser(accessToken, tokenType) {
