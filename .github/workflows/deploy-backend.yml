@@ -3,10 +3,11 @@ name: Deploy Backend to UpCloud
 on:
   workflow_dispatch:
     inputs:
-      server_ip:
-        description: 'IP address of the UpCloud server to deploy to'
-        required: true
+      zone:
+        description: 'UpCloud zone to deploy to (e.g. us-chi1, de-fra1, fi-hel1)'
+        required: false
         type: string
+        default: 'us-chi1'
 
 permissions:
   contents: read
@@ -18,22 +19,156 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up SSH key and known hosts
+      - name: Generate ephemeral SSH key pair
+        run: |
+          ssh-keygen -t ed25519 -C "deploy@github-actions" -f /tmp/deploy_key -N ""
+
+      - name: Provision smallest UpCloud server
+        id: provision
+        env:
+          UPCLOUD_USERNAME: ${{ secrets.UPCLOUD_USERNAME }}
+          UPCLOUD_PASSWORD: ${{ secrets.UPCLOUD_PASSWORD }}
+        run: |
+          CREDS="${UPCLOUD_USERNAME}:${UPCLOUD_PASSWORD}"
+          PUBLIC_KEY=$(cat /tmp/deploy_key.pub)
+          ZONE="${{ inputs.zone }}"
+
+          # Find the latest Ubuntu 24.04 LTS public storage template
+          TEMPLATES=$(curl -sf -u "${CREDS}" \
+            'https://api.upcloud.com/1.3/storage?type=template&access=public')
+
+          TEMPLATE_UUID=$(echo "${TEMPLATES}" | jq -r \
+            '[.storages.storage[] | select(.title | test("Ubuntu Server 24.04"))] | first | .uuid')
+
+          # Fall back to Ubuntu 22.04 if 24.04 not found
+          if [ -z "${TEMPLATE_UUID}" ] || [ "${TEMPLATE_UUID}" = "null" ]; then
+            TEMPLATE_UUID=$(echo "${TEMPLATES}" | jq -r \
+              '[.storages.storage[] | select(.title | test("Ubuntu Server 22.04"))] | first | .uuid')
+          fi
+
+          echo "Using template UUID: ${TEMPLATE_UUID}"
+
+          # Create the smallest available server (1xCPU-1GB)
+          RESPONSE=$(curl -sf -u "${CREDS}" \
+            -X POST https://api.upcloud.com/1.3/server \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n \
+              --arg zone "${ZONE}" \
+              --arg ssh_key "${PUBLIC_KEY}" \
+              --arg template "${TEMPLATE_UUID}" \
+              '{
+                server: {
+                  zone: $zone,
+                  title: "vibe-game-tool-backend",
+                  hostname: "vibe-game-tool",
+                  plan: "1xCPU-1GB",
+                  storage_devices: {
+                    storage_device: [{
+                      action: "clone",
+                      storage: $template,
+                      title: "vibe-game-tool-disk",
+                      size: 25,
+                      tier: "maxiops"
+                    }]
+                  },
+                  login_user: {
+                    username: "root",
+                    create_password: "no",
+                    ssh_keys: {
+                      ssh_key: [$ssh_key]
+                    }
+                  },
+                  networking: {
+                    interfaces: {
+                      interface: [
+                        {
+                          ip_addresses: {
+                            ip_address: [{ family: "IPv4" }]
+                          },
+                          type: "public"
+                        },
+                        {
+                          ip_addresses: {
+                            ip_address: [{ family: "IPv4" }]
+                          },
+                          type: "utility"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }')")
+
+          SERVER_UUID=$(echo "${RESPONSE}" | jq -r '.server.uuid')
+          if [ -z "${SERVER_UUID}" ] || [ "${SERVER_UUID}" = "null" ]; then
+            echo "ERROR: Failed to create server. API response:"
+            echo "${RESPONSE}"
+            exit 1
+          fi
+
+          echo "server_uuid=${SERVER_UUID}" >> "$GITHUB_OUTPUT"
+          echo "Created server with UUID: ${SERVER_UUID}"
+
+      - name: Wait for server to start and retrieve IP address
+        id: server_ready
+        env:
+          UPCLOUD_USERNAME: ${{ secrets.UPCLOUD_USERNAME }}
+          UPCLOUD_PASSWORD: ${{ secrets.UPCLOUD_PASSWORD }}
+        run: |
+          CREDS="${UPCLOUD_USERNAME}:${UPCLOUD_PASSWORD}"
+          SERVER_UUID="${{ steps.provision.outputs.server_uuid }}"
+
+          echo "Waiting for server ${SERVER_UUID} to reach 'started' state..."
+          for i in $(seq 1 30); do
+            SERVER_DATA=$(curl -sf -u "${CREDS}" \
+              "https://api.upcloud.com/1.3/server/${SERVER_UUID}")
+            STATE=$(echo "${SERVER_DATA}" | jq -r '.server.state')
+            echo "  Attempt ${i}/30: state=${STATE}"
+
+            if [ "${STATE}" = "started" ]; then
+              SERVER_IP=$(echo "${SERVER_DATA}" | jq -r \
+                '[.server.networking.interfaces.interface[]
+                  | select(.type == "public")
+                  | .ip_addresses.ip_address[]
+                  | select(.family == "IPv4")
+                  | .address][0]')
+              echo "server_ip=${SERVER_IP}" >> "$GITHUB_OUTPUT"
+              echo "Server is ready at ${SERVER_IP}"
+              exit 0
+            fi
+            sleep 15
+          done
+
+          echo "ERROR: Server did not reach 'started' state within timeout (7.5 minutes)"
+          exit 1
+
+      - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 700 ~/.ssh
+          cp /tmp/deploy_key ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # Use the pre-verified server host key stored as a secret when available;
-          # fall back to ssh-keyscan only for convenience in non-sensitive environments.
-          if [ -n "${{ secrets.SSH_HOST_KEY }}" ]; then
-            printf '%s\n' "${{ secrets.SSH_HOST_KEY }}" >> ~/.ssh/known_hosts
-          else
-            ssh-keyscan -H "${{ inputs.server_ip }}" >> ~/.ssh/known_hosts
+          # Wait for SSH to become available and capture the host key
+          SERVER_IP="${{ steps.server_ready.outputs.server_ip }}"
+          echo "Waiting for SSH on ${SERVER_IP}..."
+          SSH_READY=0
+          for i in $(seq 1 20); do
+            if ssh-keyscan -H "${SERVER_IP}" >> ~/.ssh/known_hosts 2>/dev/null; then
+              echo "SSH is ready"
+              SSH_READY=1
+              break
+            fi
+            echo "  Attempt ${i}/20: SSH not yet available, retrying in 10s..."
+            sleep 10
+          done
+          if [ "${SSH_READY}" -eq 0 ]; then
+            echo "ERROR: SSH did not become available within timeout (200 seconds)"
+            exit 1
           fi
 
       - name: Clone or update repository on server
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ inputs.server_ip }} bash << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key root@${{ steps.server_ready.outputs.server_ip }} bash << 'ENDSSH'
             set -euo pipefail
             REPO_URL="${{ github.server_url }}/${{ github.repository }}.git"
             REPO_DIR="/opt/vibe-game-tool"
@@ -65,9 +200,9 @@ jobs:
             printf 'DATABASE_URL=%s\n'         "sqlite:///app/data/app.db"
           } > "${TMPENV}"
           scp -i ~/.ssh/deploy_key "${TMPENV}" \
-            root@${{ inputs.server_ip }}:/opt/vibe-game-tool/deploy/.env
+            root@${{ steps.server_ready.outputs.server_ip }}:/opt/vibe-game-tool/deploy/.env
 
       - name: Run deploy script on server
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ inputs.server_ip }} \
+          ssh -i ~/.ssh/deploy_key root@${{ steps.server_ready.outputs.server_ip }} \
             "bash /opt/vibe-game-tool/deploy/deploy.sh"
