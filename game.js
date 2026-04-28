@@ -1611,10 +1611,11 @@ async function onSaveMapClick() {
     return;
   }
 
-  const name = window.prompt("Enter a name for this map:");
-  if (!name || !name.trim()) {
+  const rawName = window.prompt("Enter a name for this map:");
+  if (!rawName || !rawName.trim()) {
     return;
   }
+  const mapName = rawName.trim();
 
   saveMapBtn.disabled = true;
   saveMapBtn.textContent = "Saving…";
@@ -1627,12 +1628,12 @@ async function onSaveMapClick() {
         "Content-Type": "application/json",
         Authorization: `${gameContext.githubAuth.tokenType} ${gameContext.githubAuth.accessToken}`,
       },
-      body: JSON.stringify({ name: name.trim(), type: "map", data }),
+      body: JSON.stringify({ name: mapName, type: "map", data }),
     });
 
     if (response.ok) {
       if (githubAuthStatusEl) {
-        githubAuthStatusEl.textContent = `Map "${name.trim()}" saved successfully.`;
+        githubAuthStatusEl.textContent = `Map "${mapName}" saved successfully.`;
       }
     } else {
       const err = await response.json().catch(() => ({}));
@@ -1651,6 +1652,9 @@ async function onSaveMapClick() {
   }
 }
 
+/** Serialise the current world into a JSON-safe object for artifact storage.
+ *  Animation-only fields (transDx, transDy, transProgress) are omitted because
+ *  they represent transient render state and should not be persisted. */
 function serializeWorldMap() {
   const tiles = world.map((row) =>
     row.map(({ transDx, transDy, transProgress, ...rest }) => rest),
