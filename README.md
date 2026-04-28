@@ -87,8 +87,10 @@ Then fill in each variable as described below.
 2. Fill in the form:
    - **Application name** — any name, e.g. `vibe-game-tool`
    - **Homepage URL** — your server URL, e.g. `https://game.example.com`
-   - **Authorization callback URL** — the page that completes the login flow, e.g.
-     `https://game.example.com` (must match the URL where the game is hosted)
+   - **Authorization callback URL** — add **both** of the following (one per line, or
+     register them as separate OAuth Apps):
+     - `https://game.example.com` — for the in-game login flow
+     - `https://game.example.com/portal` — for the user artifact portal
 3. Click **Register application**.
 4. Copy the **Client ID** → set as `GH_CLIENT_ID` in `deploy/.env`.
 5. Click **Generate a new client secret**, copy the value → set as `GH_CLIENT_SECRET` in `deploy/.env`.
@@ -118,3 +120,43 @@ sudo bash deploy/deploy.sh
 ```
 
 The script installs Docker, clones/updates the repository on the server, validates `deploy/.env`, and starts the Docker Compose stack. Caddy serves the game's static files and proxies all `/api/*` requests to the backend.  If `DOMAIN` is a hostname the game is served at `https://DOMAIN/`; if it is a bare IP address it is served at `http://IP/` over plain HTTP.
+
+## Artifact storage and user portal
+
+Authenticated users can store named **map** and **tile** artifacts through the REST API, and view them in the browser-based user portal.
+
+### User portal
+
+Visit `https://DOMAIN/portal` in any browser. Click **Login with GitHub** to authenticate. After sign-in you will see two sections — **Maps** and **Tiles** — listing all artifacts you have stored.
+
+### Artifact REST API
+
+All endpoints require a `Authorization: Bearer <jwt>` header obtained from `POST /api/auth/github`.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/artifacts` | List all artifacts for the authenticated user (id, name, type, timestamps). |
+| `POST` | `/api/artifacts` | Create a new artifact. Body: `{ name, type, data? }` |
+| `GET` | `/api/artifacts/:id` | Fetch a single artifact including its full data payload. |
+| `PUT` | `/api/artifacts/:id` | Update name and/or data of an artifact. Body: `{ name, data? }` |
+| `DELETE` | `/api/artifacts/:id` | Delete an artifact. |
+
+**`type`** must be one of `"map"` or `"tile"`. The `data` field accepts any JSON object (max 1 MB).
+
+**Example – store a map:**
+
+```bash
+curl -X POST https://DOMAIN/api/artifacts \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"My World","type":"map","data":{"width":10,"height":10,"tiles":[]}}'
+```
+
+**Example – store a tile set:**
+
+```bash
+curl -X POST https://DOMAIN/api/artifacts \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Grass Pack","type":"tile","data":{"frames":[]}}'
+```
