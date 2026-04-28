@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import authRouter from "./routes/auth.js";
 import meRouter from "./routes/me.js";
 import dataRouter from "./routes/data.js";
+import githubProxyRouter from "./routes/proxy.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +15,7 @@ const PORT = process.env.PORT || 3000;
 // ---------------------------------------------------------------------------
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 // Global rate limiter: 200 requests per minute per IP
 const globalLimiter = rateLimit({
@@ -39,6 +41,9 @@ const authLimiter = rateLimit({
 
 // GitHub OAuth token exchange
 app.use("/api/auth", authLimiter, authRouter);
+
+// Transparent GitHub OAuth token proxy (used by the game client)
+app.use("/api/github", authLimiter, githubProxyRouter);
 
 // Authenticated user profile
 app.use("/api/me", meRouter);
