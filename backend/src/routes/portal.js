@@ -80,6 +80,8 @@ function buildPortalHtml(clientId) {
     button.danger:hover { background: #d1242f; }
     button.secondary { background: #21262d; border: 1px solid #30363d; color: #e6edf3; }
     button.secondary:hover { background: #30363d; }
+    button.editor { background: #2f5fa5; }
+    button.editor:hover { background: #244d8a; }
     section { margin-bottom: 36px; }
     .section-header {
       display: flex;
@@ -260,6 +262,7 @@ function buildPortalHtml(clientId) {
               '<div class="artifact-meta">Updated ' + fmtDate(a.updated_at) + '</div>' +
             '</div>' +
             '<span class="badge ' + esc(a.type) + '">' + esc(a.type) + '</span>' +
+            (a.type === 'map' ? '<button class="editor" onclick="openInEditor(' + a.id + ')">Open in Editor</button>' : '') +
             '<button class="danger" onclick="deleteArtifact(' + a.id + ')">Delete</button>' +
           '</li>'
         ).join('') +
@@ -275,6 +278,10 @@ function buildPortalHtml(clientId) {
       if (!confirm('Delete this artifact?')) return;
       const ok = await apiDelete('/api/artifacts/' + id);
       if (ok) render();
+    }
+
+    function openInEditor(id) {
+      window.location.assign('/?loadMap=' + id);
     }
 
     async function render() {
