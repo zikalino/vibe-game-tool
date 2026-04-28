@@ -493,11 +493,11 @@ const WORKFLOW_STEPS = [
       },
       {
         id: "domain",
-        label: "Domain",
+        label: "Domain or IP Address",
         type: "text",
-        placeholder: "api.example.com",
+        placeholder: "api.example.com or 203.0.113.10",
         required: true,
-        hint: "DOMAIN — public hostname for Caddy / HTTPS"
+        hint: "DOMAIN — hostname for HTTPS (auto-cert), or bare IP for plain HTTP"
       }
     ],
     validate: null
@@ -782,12 +782,19 @@ ENDSSH`
         {
           label: "Create local .env file and upload to server",
           cmd: [
+            `# Derive CADDY_DOMAIN: use http:// prefix for bare IP to avoid Caddy auto-HTTPS failures`,
+            `if echo "${domain || "<domain>"}" | grep -qE '^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$'; then`,
+            `  CADDY_DOMAIN="http://${domain || "<domain>"}"`,
+            `else`,
+            `  CADDY_DOMAIN="${domain || "<domain>"}"`,
+            `fi`,
             `TMPENV=$(mktemp)`,
-            `cat > "\${TMPENV}" << 'EOF'`,
+            `cat > "\${TMPENV}" << EOF`,
             `GH_CLIENT_ID=${github_client_id || "<github_client_id>"}`,
             `GH_CLIENT_SECRET=${github_client_secret || "<github_client_secret>"}`,
             `JWT_SECRET=${jwt_secret || "<jwt_secret>"}`,
             `DOMAIN=${domain || "<domain>"}`,
+            `CADDY_DOMAIN=\${CADDY_DOMAIN}`,
             `DATABASE_URL=sqlite:///app/data/app.db`,
             `EOF`,
             `scp -i ${keyFile} "\${TMPENV}" root@${server_ip || "<server_ip>"}:/opt/vibe-game-tool/deploy/.env`,
@@ -804,7 +811,12 @@ ENDSSH`
         },
         {
           label: "Verify the deployment (health check)",
-          cmd: `curl -f https://${domain || "<domain>"}/health && echo "✓ Healthy"`
+          cmd: (() => {
+            const d = domain || "<domain>";
+            const isIp = /^((25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\.){3}(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)$/.test(d);
+            const scheme = isIp ? "http" : "https";
+            return `curl -f ${scheme}://${d}/health && echo "✓ Healthy"`;
+          })()
         }
       ];
 

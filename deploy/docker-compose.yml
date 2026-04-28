@@ -30,6 +30,7 @@ services:
       - "443:443/udp"
     environment:
       - DOMAIN=${DOMAIN}
+      - CADDY_DOMAIN=${CADDY_DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ..:/srv/www:ro
