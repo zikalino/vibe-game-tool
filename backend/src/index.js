@@ -5,6 +5,8 @@ import rateLimit from "express-rate-limit";
 import authRouter from "./routes/auth.js";
 import meRouter from "./routes/me.js";
 import dataRouter from "./routes/data.js";
+import artifactsRouter from "./routes/artifacts.js";
+import portalRouter from "./routes/portal.js";
 import githubProxyRouter from "./routes/proxy.js";
 
 const app = express();
@@ -50,6 +52,12 @@ app.use("/api/me", meRouter);
 
 // User-scoped key/value data store
 app.use("/api/data", dataRouter);
+
+// Artifact storage (map and tile data)
+app.use("/api/artifacts", artifactsRouter);
+
+// User portal web page
+app.use("/portal", portalRouter);
 
 // Health check (used by Docker / Caddy to verify the service is up)
 app.get("/health", (_req, res) => res.json({ status: "ok" }));

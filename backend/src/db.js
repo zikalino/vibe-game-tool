@@ -32,6 +32,16 @@ db.exec(`
     updated_at TEXT    NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id, key)
   );
+
+  CREATE TABLE IF NOT EXISTS artifacts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name       TEXT    NOT NULL,
+    type       TEXT    NOT NULL CHECK(type IN ('map', 'tile')),
+    data       TEXT    NOT NULL DEFAULT '{}',
+    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 export const upsertUser = db.transaction((profile) => {
@@ -66,5 +76,34 @@ export const setUserData = db.transaction((userId, key, value) => {
 
 export const listUserData = (userId) =>
   db.prepare("SELECT key, value, updated_at FROM user_data WHERE user_id = ?").all(userId);
+
+// ---------------------------------------------------------------------------
+// Artifacts
+// ---------------------------------------------------------------------------
+
+export const listArtifacts = (userId) =>
+  db.prepare(
+    "SELECT id, name, type, created_at, updated_at FROM artifacts WHERE user_id = ? ORDER BY updated_at DESC"
+  ).all(userId);
+
+export const getArtifact = (id, userId) =>
+  db.prepare("SELECT * FROM artifacts WHERE id = ? AND user_id = ?").get(id, userId);
+
+export const createArtifact = db.transaction((userId, name, type, data) => {
+  const result = db.prepare(
+    "INSERT INTO artifacts (user_id, name, type, data) VALUES (?, ?, ?, ?)"
+  ).run(userId, name, type, data);
+  return db.prepare("SELECT * FROM artifacts WHERE id = ?").get(result.lastInsertRowid);
+});
+
+export const updateArtifact = db.transaction((id, userId, name, data) => {
+  db.prepare(
+    "UPDATE artifacts SET name = ?, data = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?"
+  ).run(name, data, id, userId);
+  return db.prepare("SELECT * FROM artifacts WHERE id = ? AND user_id = ?").get(id, userId);
+});
+
+export const deleteArtifact = (id, userId) =>
+  db.prepare("DELETE FROM artifacts WHERE id = ? AND user_id = ?").run(id, userId);
 
 export default db;
