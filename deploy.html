@@ -1,0 +1,984 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deploy Backend — UpCloud Deployment Workflow</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    header .badge {
+      font-size: 0.72rem;
+      background: #1f6feb;
+      color: #fff;
+      border-radius: 20px;
+      padding: 2px 8px;
+    }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ─── Sidebar ─── */
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      background: #161b22;
+      border-right: 1px solid #30363d;
+      padding: 20px 0;
+      overflow-y: auto;
+    }
+
+    .sidebar-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #8b949e;
+      padding: 0 20px 12px;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 20px;
+      cursor: default;
+      transition: background 0.1s;
+      position: relative;
+    }
+
+    .step-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 31px;
+      top: calc(10px + 24px);
+      bottom: -10px;
+      width: 2px;
+      background: #30363d;
+    }
+
+    .step-item.active { background: rgba(31, 111, 235, 0.12); }
+
+    .step-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      background: #30363d;
+      color: #8b949e;
+      border: 2px solid #30363d;
+      z-index: 1;
+      margin-top: 1px;
+    }
+
+    .step-icon.active  { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+    .step-icon.done    { background: #238636; border-color: #238636; color: #fff; }
+    .step-icon.failed  { background: #da3633; border-color: #da3633; color: #fff; }
+
+    .step-text { flex: 1; min-width: 0; }
+    .step-name { font-size: 0.85rem; font-weight: 500; color: #c9d1d9; line-height: 1.35; }
+    .step-item.active .step-name { color: #f0f6fc; }
+    .step-status-label {
+      font-size: 0.72rem;
+      color: #8b949e;
+      margin-top: 2px;
+    }
+    .step-status-label.done   { color: #3fb950; }
+    .step-status-label.active { color: #58a6ff; }
+    .step-status-label.failed { color: #f85149; }
+
+    /* ─── Main content ─── */
+    .main {
+      flex: 1;
+      padding: 32px 40px;
+      overflow-y: auto;
+    }
+
+    .step-header { margin-bottom: 24px; }
+    .step-header h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-bottom: 6px;
+    }
+    .step-header p { font-size: 0.9rem; color: #8b949e; line-height: 1.55; }
+
+    /* ─── Forms ─── */
+    .form-group { margin-bottom: 18px; }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #c9d1d9;
+      margin-bottom: 6px;
+    }
+
+    label .required { color: #f85149; margin-left: 3px; }
+    label .hint { font-weight: 400; color: #8b949e; font-size: 0.78rem; margin-left: 6px; }
+
+    input[type="text"],
+    input[type="password"],
+    textarea {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #c9d1d9;
+      font-size: 0.875rem;
+      font-family: inherit;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    textarea:focus { border-color: #58a6ff; }
+
+    textarea {
+      resize: vertical;
+      min-height: 120px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 0.78rem;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .input-row input { flex: 1; }
+
+    /* ─── Buttons ─── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      font-family: inherit;
+    }
+
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary { background: #238636; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #2ea043; }
+
+    .btn-blue { background: #1f6feb; color: #fff; }
+    .btn-blue:hover:not(:disabled) { background: #388bfd; }
+
+    .btn-secondary {
+      background: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+    }
+    .btn-secondary:hover:not(:disabled) { background: #30363d; }
+
+    .btn-danger { background: #da3633; color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: #f85149; }
+
+    .btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── Command box ─── */
+    .cmd-box {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      margin: 12px 0;
+    }
+
+    .cmd-box-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      border-bottom: 1px solid #30363d;
+      background: #161b22;
+      border-radius: 6px 6px 0 0;
+    }
+
+    .cmd-box-title { font-size: 0.78rem; color: #8b949e; font-weight: 500; }
+
+    .cmd-box pre {
+      padding: 14px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 0.8rem;
+      color: #c9d1d9;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+
+    /* ─── Alert / info ─── */
+    .alert {
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      line-height: 1.55;
+      margin: 12px 0;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .alert-info { background: rgba(31,111,235,.12); border: 1px solid #1f6feb; color: #79c0ff; }
+    .alert-warn { background: rgba(210,153,34,.12); border: 1px solid #d29922; color: #e3b341; }
+    .alert-success { background: rgba(35,134,54,.12); border: 1px solid #238636; color: #3fb950; }
+    .alert-error { background: rgba(218,54,51,.12); border: 1px solid #da3633; color: #f85149; }
+
+    .alert-icon { flex-shrink: 0; font-size: 1rem; margin-top: 1px; }
+
+    /* ─── Status row ─── */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      margin: 8px 0;
+      background: #161b22;
+      font-size: 0.85rem;
+    }
+
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.pending  { background: #8b949e; }
+    .status-dot.running  { background: #d29922; animation: pulse 1.2s ease-in-out infinite; }
+    .status-dot.done     { background: #3fb950; }
+    .status-dot.failed   { background: #f85149; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.35; }
+    }
+
+    .status-label { flex: 1; color: #c9d1d9; }
+    .status-note  { font-size: 0.78rem; color: #8b949e; }
+
+    /* ─── Complete card ─── */
+    .complete-card {
+      text-align: center;
+      padding: 48px 24px;
+    }
+
+    .complete-card .icon { font-size: 3rem; margin-bottom: 16px; }
+    .complete-card h2 { color: #3fb950; font-size: 1.4rem; margin-bottom: 10px; }
+    .complete-card p { color: #8b949e; margin-bottom: 20px; }
+
+    .url-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: #161b22;
+      border: 1px solid #238636;
+      border-radius: 6px;
+      padding: 10px 18px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.9rem;
+      color: #3fb950;
+      margin-top: 8px;
+    }
+
+    /* ─── Progress spinner ─── */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #30363d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Tooltip ─── */
+    .tooltip { position: relative; display: inline-block; }
+    .tooltip .tip {
+      visibility: hidden;
+      background: #30363d;
+      color: #c9d1d9;
+      font-size: 0.75rem;
+      border-radius: 4px;
+      padding: 4px 8px;
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      z-index: 10;
+    }
+    .tooltip:hover .tip { visibility: visible; }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 700px) {
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #30363d; padding: 12px 0; }
+      .sidebar-title { display: none; }
+      .step-item { padding: 7px 16px; }
+      .main { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="20" height="20" viewBox="0 0 16 16" fill="#58a6ff" aria-hidden="true">
+    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+      0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+      -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+      .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+      -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09
+      2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82
+      2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01
+      2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+  </svg>
+  <h1>Deploy Backend — UpCloud Deployment Workflow</h1>
+  <span class="badge">MicroWorkflow</span>
+</header>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" id="main"></main>
+</div>
+
+<script>
+(function () {
+/* ═══════════════════════════════════════════════════════════════════════════
+   Workflow definition — mirrors .github/workflows/deploy-backend.yml
+   ═══════════════════════════════════════════════════════════════════════════ */
+const WORKFLOW_STEPS = [
+  {
+    id: "upcloud_auth",
+    name: "UpCloud Authentication",
+    icon: "🔑",
+    description: "Provide your UpCloud API credentials so subsequent steps can verify connectivity and retrieve server information. Credentials are used only for this validation request and are not stored or transmitted to any third party.",
+    type: "input",
+    fields: [
+      {
+        id: "upcloud_username",
+        label: "UpCloud Username",
+        type: "text",
+        placeholder: "username@example.com",
+        required: true,
+        hint: "Your UpCloud control-panel username"
+      },
+      {
+        id: "upcloud_password",
+        label: "UpCloud Password",
+        type: "password",
+        placeholder: "••••••••",
+        required: true,
+        hint: "Your UpCloud control-panel password"
+      }
+    ],
+    validate: validateUpCloudCredentials
+  },
+  {
+    id: "server_params",
+    name: "Server Parameters",
+    icon: "🖥️",
+    description: "Enter the IP address of the UpCloud server you want to deploy to. The server must already exist and be reachable via SSH.",
+    type: "input",
+    fields: [
+      {
+        id: "server_ip",
+        label: "Server IP Address",
+        type: "text",
+        placeholder: "192.0.2.10",
+        required: true,
+        hint: "IPv4 address of your UpCloud server"
+      }
+    ],
+    validate: null
+  },
+  {
+    id: "ssh_key",
+    name: "SSH Private Key",
+    icon: "🗝️",
+    description: "Paste the SSH private key that grants root access to the server. The key is used only in your browser and is never transmitted to any third-party service.",
+    type: "input",
+    fields: [
+      {
+        id: "ssh_private_key",
+        label: "SSH Private Key",
+        type: "textarea",
+        placeholder: "-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----",
+        required: true,
+        hint: "Corresponds to an authorised public key on the server"
+      }
+    ],
+    validate: null
+  },
+  {
+    id: "app_config",
+    name: "Application Configuration",
+    icon: "⚙️",
+    description: "Configure the environment variables that will be written to the server's <code>.env</code> file and passed to the Docker Compose stack.",
+    type: "input",
+    fields: [
+      {
+        id: "github_client_id",
+        label: "GitHub OAuth App — Client ID",
+        type: "text",
+        placeholder: "Ov23li…",
+        required: true,
+        hint: "GITHUB_CLIENT_ID"
+      },
+      {
+        id: "github_client_secret",
+        label: "GitHub OAuth App — Client Secret",
+        type: "password",
+        placeholder: "••••••••",
+        required: true,
+        hint: "GITHUB_CLIENT_SECRET"
+      },
+      {
+        id: "jwt_secret",
+        label: "JWT Secret",
+        type: "password",
+        placeholder: "auto-generate",
+        required: true,
+        hint: "JWT_SECRET — 32-byte hex string; treat this value as a password",
+        autoGenerate: true
+      },
+      {
+        id: "domain",
+        label: "Domain",
+        type: "text",
+        placeholder: "api.example.com",
+        required: true,
+        hint: "DOMAIN — public hostname for Caddy / HTTPS"
+      }
+    ],
+    validate: null
+  },
+  {
+    id: "setup_ssh",
+    name: "Set Up SSH Key & Known Hosts",
+    icon: "🔐",
+    description: "Saves your SSH private key locally and adds the server's host fingerprint to <code>known_hosts</code>. Run the generated commands in your terminal.",
+    type: "command"
+  },
+  {
+    id: "clone_repo",
+    name: "Clone / Update Repository",
+    icon: "📦",
+    description: "SSH into the server and clone the repository if it doesn't exist, or pull the latest changes.",
+    type: "command"
+  },
+  {
+    id: "upload_env",
+    name: "Upload .env Configuration",
+    icon: "📤",
+    description: "Write your application secrets to a local <code>.env</code> file and transfer it to the server via <code>scp</code>.",
+    type: "command"
+  },
+  {
+    id: "run_deploy",
+    name: "Run Deploy Script",
+    icon: "🚀",
+    description: "Execute <code>deploy.sh</code> on the server to install Docker, start the compose stack, and verify the deployment.",
+    type: "command"
+  },
+  {
+    id: "done",
+    name: "Deployment Complete",
+    icon: "✅",
+    description: "Your backend is live.",
+    type: "done"
+  }
+];
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════════════════════════════════════ */
+const state = {
+  currentStep: 0,
+  stepStatuses: WORKFLOW_STEPS.map(() => "pending"), // pending | active | done | failed
+  vars: {}                                           // collected variable values
+};
+
+state.stepStatuses[0] = "active";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Render helpers
+   ═══════════════════════════════════════════════════════════════════════════ */
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function statusLabel(s) {
+  return { pending: "Not started", active: "In progress", done: "Complete", failed: "Failed" }[s] || s;
+}
+
+function renderSidebar() {
+  const sidebar = document.getElementById("sidebar");
+  sidebar.innerHTML = `<div class="sidebar-title">Workflow Steps</div>` +
+    WORKFLOW_STEPS.map((step, i) => {
+      const st = state.stepStatuses[i];
+      const iconContent = st === "done"   ? "✓"
+                        : st === "failed" ? "✕"
+                        : st === "active" ? `<span class="spinner"></span>`
+                        : String(i + 1);
+      return `
+        <div class="step-item ${st === "active" ? "active" : ""}">
+          <div class="step-icon ${st}">${iconContent}</div>
+          <div class="step-text">
+            <div class="step-name">${escHtml(step.name)}</div>
+            <div class="step-status-label ${st}">${statusLabel(st)}</div>
+          </div>
+        </div>`;
+    }).join("");
+}
+
+function renderMain() {
+  const step = WORKFLOW_STEPS[state.currentStep];
+  const main = document.getElementById("main");
+
+  if (step.type === "input") {
+    main.innerHTML = renderInputStep(step);
+    bindInputStep(step);
+  } else if (step.type === "command") {
+    main.innerHTML = renderCommandStep(step);
+    bindCommandStep(step);
+  } else if (step.type === "done") {
+    main.innerHTML = renderDoneStep();
+    document.getElementById("btnRestart").addEventListener("click", () => restartWorkflow());
+  }
+}
+
+function render() {
+  renderSidebar();
+  renderMain();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Input step
+   ═══════════════════════════════════════════════════════════════════════════ */
+function renderInputStep(step) {
+  const fields = step.fields.map(f => {
+    const value = escHtml(state.vars[f.id] || "");
+    let input;
+
+    if (f.type === "textarea") {
+      input = `<textarea id="field_${f.id}" placeholder="${escHtml(f.placeholder || "")}"
+        rows="6">${value}</textarea>`;
+    } else if (f.autoGenerate) {
+      input = `
+        <div class="input-row">
+          <input id="field_${f.id}" type="${f.type}" placeholder="${escHtml(f.placeholder || "")}" value="${value}">
+          <button type="button" class="btn btn-secondary btn-sm" id="gen_${f.id}">Generate</button>
+        </div>`;
+    } else {
+      input = `<input id="field_${f.id}" type="${f.type}" placeholder="${escHtml(f.placeholder || "")}" value="${value}">`;
+    }
+
+    return `
+      <div class="form-group">
+        <label for="field_${f.id}">
+          ${escHtml(f.label)}<span class="required">*</span>
+          ${f.hint ? `<span class="hint">(${escHtml(f.hint)})</span>` : ""}
+        </label>
+        ${input}
+      </div>`;
+  }).join("");
+
+  const hasPrev = state.currentStep > 0;
+  return `
+    <div class="step-header">
+      <h2>${step.icon} ${escHtml(step.name)}</h2>
+      <p>${step.description}</p>
+    </div>
+    <form id="stepForm" novalidate>
+      ${fields}
+      <div id="formAlert"></div>
+      <div class="btn-group">
+        ${hasPrev ? `<button type="button" class="btn btn-secondary" id="btnBack">← Back</button>` : ""}
+        <button type="submit" class="btn btn-primary" id="btnNext">Continue →</button>
+      </div>
+    </form>`;
+}
+
+function bindInputStep(step) {
+  // Auto-generate buttons
+  step.fields.filter(f => f.autoGenerate).forEach(f => {
+    const btn = document.getElementById(`gen_${f.id}`);
+    if (btn) {
+      btn.addEventListener("click", () => {
+        const arr = new Uint8Array(32);
+        crypto.getRandomValues(arr);
+        const hex = Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
+        document.getElementById(`field_${f.id}`).value = hex;
+      });
+    }
+  });
+
+  // Back
+  const btnBack = document.getElementById("btnBack");
+  if (btnBack) {
+    btnBack.addEventListener("click", () => goBack());
+  }
+
+  // Submit
+  document.getElementById("stepForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const alertEl = document.getElementById("formAlert");
+    alertEl.innerHTML = "";
+
+    // Collect values
+    for (const f of step.fields) {
+      const el = document.getElementById(`field_${f.id}`);
+      const val = (el ? el.value.trim() : "");
+      if (f.required && !val) {
+        alertEl.innerHTML = `<div class="alert alert-error"><span class="alert-icon">✕</span>
+          <div><strong>${escHtml(f.label)}</strong> is required.</div></div>`;
+        el && el.focus();
+        return;
+      }
+      state.vars[f.id] = val;
+    }
+
+    // Optional async validation
+    if (step.validate) {
+      const btn = document.getElementById("btnNext");
+      btn.disabled = true;
+      btn.textContent = "Validating…";
+      alertEl.innerHTML = `<div class="alert alert-info"><span class="alert-icon">ℹ</span>
+        <div>Validating credentials…</div></div>`;
+      try {
+        const result = await step.validate(state.vars);
+        if (!result.ok) {
+          alertEl.innerHTML = `<div class="alert alert-warn"><span class="alert-icon">⚠</span>
+            <div>${escHtml(result.message)}<br><small>You can still continue if you are sure the credentials are correct.</small></div></div>`;
+          // Switch button to a plain button (not submit) to avoid double-firing
+          btn.type = "button";
+          btn.disabled = false;
+          btn.textContent = "Continue anyway →";
+          btn.addEventListener("click", () => goNext(), { once: true });
+          return;
+        } else {
+          alertEl.innerHTML = `<div class="alert alert-success"><span class="alert-icon">✓</span>
+            <div>${escHtml(result.message)}</div></div>`;
+        }
+      } catch (_) {
+        alertEl.innerHTML = `<div class="alert alert-warn"><span class="alert-icon">⚠</span>
+          <div>Could not reach the UpCloud API (possible CORS restriction). You can still continue manually.</div></div>`;
+        // Switch button to a plain button (not submit) to avoid double-firing
+        btn.type = "button";
+        btn.disabled = false;
+        btn.textContent = "Continue anyway →";
+        btn.addEventListener("click", () => goNext(), { once: true });
+        return;
+      }
+    }
+
+    goNext();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Command step
+   ═══════════════════════════════════════════════════════════════════════════ */
+function buildCommands(stepId) {
+  const { server_ip, ssh_private_key } = state.vars;
+  const {
+    github_client_id, github_client_secret, jwt_secret, domain
+  } = state.vars;
+
+  const keyFile = "~/.ssh/vibe_deploy_key";
+
+  switch (stepId) {
+    case "setup_ssh":
+      return [
+        {
+          label: "Save SSH private key",
+          cmd: [
+            "mkdir -p ~/.ssh",
+            `cat > ${keyFile} << 'END_SSH_PRIVATE_KEY'\n${ssh_private_key || "<paste your private key>"}\nEND_SSH_PRIVATE_KEY`,
+            `chmod 600 ${keyFile}`
+          ].join("\n")
+        },
+        {
+          label: "Add server host key to known_hosts",
+          cmd: `ssh-keyscan -H ${server_ip || "<server_ip>"} >> ~/.ssh/known_hosts`
+        }
+      ];
+
+    case "clone_repo":
+      return [
+        {
+          label: "Clone or update the repository on the server",
+          cmd: `ssh -i ${keyFile} root@${server_ip || "<server_ip>"} bash << 'ENDSSH'
+set -euo pipefail
+REPO_URL="https://github.com/zikalino/vibe-game-tool.git"
+REPO_DIR="/opt/vibe-game-tool"
+if [ -d "\${REPO_DIR}/.git" ]; then
+  echo "Pulling latest changes..."
+  git -C "\${REPO_DIR}" pull --ff-only
+else
+  echo "Cloning repository..."
+  git clone "\${REPO_URL}" "\${REPO_DIR}"
+fi
+ENDSSH`
+        }
+      ];
+
+    case "upload_env":
+      return [
+        {
+          label: "Create local .env file and upload to server",
+          cmd: [
+            `TMPENV=$(mktemp)`,
+            `cat > "\${TMPENV}" << 'EOF'`,
+            `GITHUB_CLIENT_ID=${github_client_id || "<github_client_id>"}`,
+            `GITHUB_CLIENT_SECRET=${github_client_secret || "<github_client_secret>"}`,
+            `JWT_SECRET=${jwt_secret || "<jwt_secret>"}`,
+            `DOMAIN=${domain || "<domain>"}`,
+            `DATABASE_URL=sqlite:///app/data/app.db`,
+            `EOF`,
+            `scp -i ${keyFile} "\${TMPENV}" root@${server_ip || "<server_ip>"}:/opt/vibe-game-tool/deploy/.env`,
+            `rm -f "\${TMPENV}"`
+          ].join("\n")
+        }
+      ];
+
+    case "run_deploy":
+      return [
+        {
+          label: "Run the deploy script on the server",
+          cmd: `ssh -i ${keyFile} root@${server_ip || "<server_ip>"} \\\n  "bash /opt/vibe-game-tool/deploy/deploy.sh"`
+        },
+        {
+          label: "Verify the deployment (health check)",
+          cmd: `curl -f https://${domain || "<domain>"}/health && echo "✓ Healthy"`
+        }
+      ];
+
+    default:
+      return [];
+  }
+}
+
+function renderCommandStep(step) {
+  const cmds = buildCommands(step.id);
+  const cmdBlocks = cmds.map((c, i) => `
+    <div class="cmd-box">
+      <div class="cmd-box-header">
+        <span class="cmd-box-title">${escHtml(c.label)}</span>
+        <button type="button" class="btn btn-secondary btn-sm tooltip copy-cmd-btn"
+          data-step-id="${escHtml(step.id)}" data-cmd-index="${i}">
+          Copy
+          <span class="tip" id="tip_${escHtml(step.id)}_${i}">Copied!</span>
+        </button>
+      </div>
+      <pre id="cmdpre_${escHtml(step.id)}_${i}">${escHtml(c.cmd)}</pre>
+    </div>`).join("");
+
+  const hasPrev = state.currentStep > 0;
+  return `
+    <div class="step-header">
+      <h2>${step.icon} ${escHtml(step.name)}</h2>
+      <p>${step.description}</p>
+    </div>
+    <div class="alert alert-info">
+      <span class="alert-icon">ℹ</span>
+      <div>Run the commands below in your local terminal, then click <strong>Mark as complete</strong> to proceed.</div>
+    </div>
+    ${cmdBlocks}
+    <div class="btn-group">
+      ${hasPrev ? `<button type="button" class="btn btn-secondary" id="btnBack">← Back</button>` : ""}
+      <button type="button" class="btn btn-primary" id="btnMark">Mark as complete ✓</button>
+    </div>`;
+}
+
+function bindCommandStep(step) {
+  const btnBack = document.getElementById("btnBack");
+  if (btnBack) btnBack.addEventListener("click", () => goBack());
+
+  document.getElementById("btnMark").addEventListener("click", () => goNext());
+
+  // Event delegation for copy buttons
+  document.getElementById("main").addEventListener("click", (e) => {
+    const btn = e.target.closest(".copy-cmd-btn");
+    if (!btn) return;
+    const stepId = btn.dataset.stepId;
+    const idx = parseInt(btn.dataset.cmdIndex, 10);
+    copyCmd(idx, stepId);
+  });
+}
+
+function copyCmd(idx, stepId) {
+  const cmds = buildCommands(stepId);
+  const text = cmds[idx] ? cmds[idx].cmd : "";
+  navigator.clipboard.writeText(text).then(() => {
+    const tip = document.getElementById(`tip_${stepId}_${idx}`);
+    if (tip) {
+      tip.style.visibility = "visible";
+      setTimeout(() => { tip.style.visibility = ""; }, 1500);
+    }
+  }).catch(() => {
+    // fallback: select pre text
+    const pre = document.getElementById(`cmdpre_${stepId}_${idx}`);
+    if (pre) {
+      const range = document.createRange();
+      range.selectNodeContents(pre);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Done step
+   ═══════════════════════════════════════════════════════════════════════════ */
+function renderDoneStep() {
+  const domain = state.vars.domain || "<domain>";
+  return `
+    <div class="complete-card">
+      <div class="icon">🎉</div>
+      <h2>Deployment Complete!</h2>
+      <p>Your vibe-game-tool backend is now running on UpCloud.</p>
+      <div style="margin-top: 12px;">
+        <div class="url-box">
+          <span>🌐</span>
+          <a href="https://${escHtml(domain)}" target="_blank" rel="noopener" style="color: inherit; text-decoration: none;">
+            https://${escHtml(domain)}
+          </a>
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <div class="url-box">
+          <span>❤️</span>
+          <a href="https://${escHtml(domain)}/health" target="_blank" rel="noopener" style="color: inherit; text-decoration: none;">
+            https://${escHtml(domain)}/health
+          </a>
+        </div>
+      </div>
+      <div style="margin-top: 28px;">
+        <button type="button" class="btn btn-secondary" id="btnRestart">
+          ↺ Start over
+        </button>
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Navigation
+   ═══════════════════════════════════════════════════════════════════════════ */
+function goNext() {
+  state.stepStatuses[state.currentStep] = "done";
+  state.currentStep += 1;
+  if (state.currentStep < WORKFLOW_STEPS.length) {
+    state.stepStatuses[state.currentStep] = "active";
+  }
+  render();
+  window.scrollTo(0, 0);
+}
+
+function goBack() {
+  state.stepStatuses[state.currentStep] = "pending";
+  state.currentStep -= 1;
+  state.stepStatuses[state.currentStep] = "active";
+  render();
+  window.scrollTo(0, 0);
+}
+
+function restartWorkflow() {
+  state.currentStep = 0;
+  state.vars = {};
+  state.stepStatuses.fill("pending");
+  state.stepStatuses[0] = "active";
+  render();
+  window.scrollTo(0, 0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UpCloud API validation
+   ═══════════════════════════════════════════════════════════════════════════ */
+async function validateUpCloudCredentials(vars) {
+  const { upcloud_username, upcloud_password } = vars;
+  const creds = btoa(`${upcloud_username}:${upcloud_password}`);
+
+  const res = await fetch("https://api.upcloud.com/1.3/account", {
+    headers: {
+      Authorization: `Basic ${creds}`,
+      Accept: "application/json"
+    }
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    const username = data?.account?.username || upcloud_username;
+    return { ok: true, message: `Authenticated as ${username}` };
+  }
+
+  if (res.status === 401) {
+    return { ok: false, message: "Invalid credentials. Please check your UpCloud username and password." };
+  }
+
+  return { ok: false, message: `UpCloud API returned HTTP ${res.status}.` };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Bootstrap
+   ═══════════════════════════════════════════════════════════════════════════ */
+render();
+})();
+</script>
+</body>
+</html>
