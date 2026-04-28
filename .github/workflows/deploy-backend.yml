@@ -2,11 +2,6 @@ name: Deploy Backend to Ubuntu VM
 
 on:
   workflow_dispatch:
-    inputs:
-      server_ip:
-        description: 'IP address of the existing Ubuntu VM to deploy to'
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -25,7 +20,7 @@ jobs:
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           # Capture the host key so StrictHostKeyChecking passes; retry until SSH is ready
-          SERVER_IP="${{ inputs.server_ip }}"
+          SERVER_IP="${{ secrets.DOMAIN }}"
           echo "Waiting for SSH on ${SERVER_IP}..."
           SSH_READY=0
           for i in $(seq 1 20); do
@@ -44,7 +39,7 @@ jobs:
 
       - name: Clone or update repository on server
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ inputs.server_ip }} bash << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DOMAIN }} bash << 'ENDSSH'
             set -euo pipefail
             REPO_URL="${{ github.server_url }}/${{ github.repository }}.git"
             REPO_DIR="/opt/vibe-game-tool"
@@ -76,9 +71,9 @@ jobs:
             printf 'DATABASE_URL=%s\n'     "sqlite:///app/data/app.db"
           } > "${TMPENV}"
           scp -i ~/.ssh/deploy_key "${TMPENV}" \
-            root@${{ inputs.server_ip }}:/opt/vibe-game-tool/deploy/.env
+            root@${{ secrets.DOMAIN }}:/opt/vibe-game-tool/deploy/.env
 
       - name: Run deploy script on server
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ inputs.server_ip }} \
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DOMAIN }} \
             "bash /opt/vibe-game-tool/deploy/deploy.sh"
