@@ -43,6 +43,16 @@ function buildPortalHtml(clientId) {
     header h1 { font-size: 1.1rem; font-weight: 600; }
     .user-bar { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
     .user-bar img { width: 28px; height: 28px; border-radius: 50%; }
+    .tier-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .tier-badge.premium { background: #b08828; color: #fff; }
+    .tier-badge.basic   { background: #21262d; color: #8b949e; border: 1px solid #30363d; }
     main { max-width: 900px; margin: 40px auto; padding: 0 20px; }
     .login-card {
       text-align: center;
@@ -292,6 +302,9 @@ function buildPortalHtml(clientId) {
         '<div class="user-bar">' +
           '<img src="' + esc(user.avatar_url) + '" alt="' + esc(user.login) + '" />' +
           '<span>' + esc(user.login) + '</span>' +
+          '<span class="tier-badge ' + (user.is_sponsor ? 'premium' : 'basic') + '">' +
+            (user.is_sponsor ? 'PREMIUM' : 'BASIC') +
+          '</span>' +
           '<button class="secondary" onclick="logout()">Logout</button>' +
         '</div>';
 

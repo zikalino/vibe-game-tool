@@ -18,6 +18,7 @@ router.get("/", requireAuth, (req, res) => {
     login: user.login,
     name: user.name,
     avatar_url: user.avatar_url,
+    is_sponsor: user.is_sponsor === 1,
     created_at: user.created_at,
   });
 });
