@@ -21,6 +21,20 @@
 # that does not match the primary site (e.g. direct IP access in the browser
 # before DNS is configured, or when DOMAIN is set to an IP address).
 http:// {
-    root * /srv/www
-    file_server
+    handle /api/* {
+        reverse_proxy backend:3000
+    }
+
+    handle /health {
+        reverse_proxy backend:3000
+    }
+
+    handle /portal* {
+        reverse_proxy backend:3000
+    }
+
+    handle {
+        root * /srv/www
+        file_server
+    }
 }
