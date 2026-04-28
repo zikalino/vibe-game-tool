@@ -59,8 +59,8 @@ jobs:
 
       - name: Upload .env configuration to server
         env:
-          BACKEND_GITHUB_CLIENT_ID: ${{ secrets.BACKEND_GITHUB_CLIENT_ID }}
-          BACKEND_GITHUB_CLIENT_SECRET: ${{ secrets.BACKEND_GITHUB_CLIENT_SECRET }}
+          GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
+          GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
           BACKEND_JWT_SECRET: ${{ secrets.BACKEND_JWT_SECRET }}
           BACKEND_DOMAIN: ${{ secrets.BACKEND_DOMAIN }}
         run: |
@@ -69,11 +69,11 @@ jobs:
           TMPENV=$(mktemp)
           trap 'rm -f "${TMPENV}"' EXIT
           {
-            printf 'GITHUB_CLIENT_ID=%s\n'     "${BACKEND_GITHUB_CLIENT_ID}"
-            printf 'GITHUB_CLIENT_SECRET=%s\n' "${BACKEND_GITHUB_CLIENT_SECRET}"
-            printf 'JWT_SECRET=%s\n'           "${BACKEND_JWT_SECRET}"
-            printf 'DOMAIN=%s\n'               "${BACKEND_DOMAIN}"
-            printf 'DATABASE_URL=%s\n'         "sqlite:///app/data/app.db"
+            printf 'GH_CLIENT_ID=%s\n'     "${GH_CLIENT_ID}"
+            printf 'GH_CLIENT_SECRET=%s\n' "${GH_CLIENT_SECRET}"
+            printf 'JWT_SECRET=%s\n'       "${BACKEND_JWT_SECRET}"
+            printf 'DOMAIN=%s\n'           "${BACKEND_DOMAIN}"
+            printf 'DATABASE_URL=%s\n'     "sqlite:///app/data/app.db"
           } > "${TMPENV}"
           scp -i ~/.ssh/deploy_key "${TMPENV}" \
             root@${{ inputs.server_ip }}:/opt/vibe-game-tool/deploy/.env

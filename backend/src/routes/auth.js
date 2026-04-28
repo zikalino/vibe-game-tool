@@ -5,12 +5,12 @@ import { upsertUser } from "../db.js";
 
 const router = Router();
 
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
-const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+const GITHUB_CLIENT_ID = process.env.GH_CLIENT_ID;
+const GITHUB_CLIENT_SECRET = process.env.GH_CLIENT_SECRET;
 const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
-  throw new Error("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables are required");
+  throw new Error("GH_CLIENT_ID and GH_CLIENT_SECRET environment variables are required");
 }
 
 /**
