@@ -72,7 +72,7 @@ check_env() {
   fi
 
   # Validate required variables are set and non-empty (no placeholder values)
-  local required_vars=("GITHUB_CLIENT_ID" "GITHUB_CLIENT_SECRET" "JWT_SECRET" "DOMAIN")
+  local required_vars=("GH_CLIENT_ID" "GH_CLIENT_SECRET" "JWT_SECRET" "DOMAIN")
   local missing=0
   for var in "${required_vars[@]}"; do
     local val

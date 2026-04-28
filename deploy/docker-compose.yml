@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
-      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GH_CLIENT_ID=${GH_CLIENT_ID}
+      - GH_CLIENT_SECRET=${GH_CLIENT_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=${DATABASE_URL:-sqlite:///app/data/app.db}
       - PORT=3000

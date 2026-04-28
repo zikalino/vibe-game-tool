@@ -32,8 +32,8 @@ Then fill in each variable as described below.
 
 | Variable | Description |
 |---|---|
-| `GITHUB_CLIENT_ID` | Client ID of your GitHub OAuth App (see below). |
-| `GITHUB_CLIENT_SECRET` | Client Secret of your GitHub OAuth App (see below). |
+| `GH_CLIENT_ID` | Client ID of your GitHub OAuth App (see below). |
+| `GH_CLIENT_SECRET` | Client Secret of your GitHub OAuth App (see below). |
 | `JWT_SECRET` | A random 32-byte hex string used to sign JWTs. Generate with `openssl rand -hex 32`. **Treat this like a password — never share it.** |
 | `DOMAIN` | Public hostname of your server (e.g. `api.example.com`). Caddy uses this to obtain a TLS certificate automatically. |
 
@@ -47,8 +47,8 @@ Then fill in each variable as described below.
    - **Authorization callback URL** — the page that completes the login flow, e.g.
      `https://yourname.github.io/vibe-game-tool` (must match the `redirect_uri` the game sends)
 3. Click **Register application**.
-4. Copy the **Client ID** → set as `GITHUB_CLIENT_ID` in `deploy/.env`.
-5. Click **Generate a new client secret**, copy the value → set as `GITHUB_CLIENT_SECRET` in `deploy/.env`.
+4. Copy the **Client ID** → set as `GH_CLIENT_ID` in `deploy/.env`.
+5. Click **Generate a new client secret**, copy the value → set as `GH_CLIENT_SECRET` in `deploy/.env`.
 
 ### 4. Generate `JWT_SECRET`
 
