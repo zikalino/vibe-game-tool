@@ -92,6 +92,10 @@ const tickIntervalSelectEl = document.getElementById("tickIntervalSelect");
 const githubAuthBtn = document.getElementById("githubAuthBtn");
 const githubAuthStatusEl = document.getElementById("githubAuthStatus");
 const saveMapBtn = document.getElementById("saveMapBtn");
+const loadMapBtn = document.getElementById("loadMapBtn");
+const loadMapOverlayEl = document.getElementById("loadMapOverlay");
+const mapPickerListEl = document.getElementById("mapPickerList");
+const loadMapCancelBtn = document.getElementById("loadMapCancelBtn");
 const exitPlayBtn = document.getElementById("exitPlayBtn");
 const edgeControlsEl = document.getElementById("edgeControls");
 const touchControlsEl = document.getElementById("touchControls");
@@ -208,6 +212,10 @@ tickIntervalSelectEl.addEventListener("change", onTickIntervalChange);
 githubAuthBtn.addEventListener("click", onGitHubAuthClick);
 exitPlayBtn.addEventListener("click", startEdit);
 saveMapBtn.addEventListener("click", onSaveMapClick);
+loadMapBtn.addEventListener("click", onLoadMapClick);
+loadMapCancelBtn.addEventListener("click", closeMapPicker);
+loadMapOverlayEl.addEventListener("click", onLoadMapOverlayClick);
+mapPickerListEl.addEventListener("click", onMapPickerListClick);
 edgeControlsEl.addEventListener("click", onExpandEdgeClick);
 touchControlsEl.addEventListener("pointerdown", onTouchControlPointerDown);
 new ResizeObserver(onMapResize).observe(mapResizeEl);
@@ -1652,6 +1660,193 @@ async function onSaveMapClick() {
   }
 }
 
+async function onLoadMapClick() {
+  if (!isGitHubAuthSession(gameContext.githubAuth)) {
+    return;
+  }
+
+  loadMapBtn.disabled = true;
+  loadMapBtn.textContent = "Loading…";
+
+  try {
+    const response = await fetch("/api/artifacts", {
+      headers: {
+        Authorization: `${gameContext.githubAuth.tokenType} ${gameContext.githubAuth.accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      if (githubAuthStatusEl) {
+        githubAuthStatusEl.textContent = `Failed to load maps: HTTP ${response.status}`;
+      }
+      return;
+    }
+
+    const artifacts = await response.json();
+    const maps = artifacts.filter((a) => a.type === "map");
+    showMapPicker(maps);
+  } catch (error) {
+    if (githubAuthStatusEl) {
+      githubAuthStatusEl.textContent = `Failed to load maps: ${error.message || "network error"}`;
+    }
+  } finally {
+    loadMapBtn.disabled = false;
+    loadMapBtn.textContent = "📂 Load Map";
+  }
+}
+
+function showMapPicker(maps) {
+  if (maps.length === 0) {
+    mapPickerListEl.innerHTML = '<p class="map-picker-empty">No saved maps found.</p>';
+  } else {
+    mapPickerListEl.innerHTML = maps
+      .map(
+        (m) =>
+          `<div class="map-picker-item">` +
+          `<div class="map-picker-item-info">` +
+          `<div class="map-picker-item-name">${escapeHtml(m.name)}</div>` +
+          `<div class="map-picker-item-meta">Updated ${formatDate(m.updated_at)}</div>` +
+          `</div>` +
+          `<button type="button" class="map-picker-load-btn" data-map-id="${m.id}">Load</button>` +
+          `</div>`,
+      )
+      .join("");
+  }
+  loadMapOverlayEl.classList.remove("hidden");
+}
+
+function closeMapPicker() {
+  loadMapOverlayEl.classList.add("hidden");
+}
+
+function onLoadMapOverlayClick(event) {
+  if (event.target === loadMapOverlayEl) {
+    closeMapPicker();
+  }
+}
+
+async function onMapPickerListClick(event) {
+  const btn = event.target.closest(".map-picker-load-btn");
+  if (!btn) {
+    return;
+  }
+
+  const mapId = Number(btn.dataset.mapId);
+  if (!Number.isFinite(mapId)) {
+    return;
+  }
+
+  closeMapPicker();
+  await loadMapById(mapId);
+}
+
+async function loadMapById(id) {
+  if (!isGitHubAuthSession(gameContext.githubAuth)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/artifacts/${id}`, {
+      headers: {
+        Authorization: `${gameContext.githubAuth.tokenType} ${gameContext.githubAuth.accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      if (githubAuthStatusEl) {
+        githubAuthStatusEl.textContent = `Load failed: HTTP ${response.status}`;
+      }
+      return;
+    }
+
+    const artifact = await response.json();
+    if (artifact.type !== "map" || !artifact.data) {
+      if (githubAuthStatusEl) {
+        githubAuthStatusEl.textContent = "Load failed: not a valid map artifact.";
+      }
+      return;
+    }
+
+    applyMapData(artifact.data);
+    if (githubAuthStatusEl) {
+      githubAuthStatusEl.textContent = `Map "${artifact.name}" loaded.`;
+    }
+  } catch (error) {
+    if (githubAuthStatusEl) {
+      githubAuthStatusEl.textContent = `Load failed: ${error.message || "network error"}`;
+    }
+  }
+}
+
+function applyMapData(data) {
+  const { cols, rows, tiles } = data;
+  if (
+    !Number.isInteger(cols) || cols < 1 ||
+    !Number.isInteger(rows) || rows < 1 ||
+    !Array.isArray(tiles)
+  ) {
+    return;
+  }
+
+  COLS = cols;
+  ROWS = rows;
+  world.length = 0;
+  for (const row of tiles) {
+    world.push(row.map((tile) => ({ ...tile })));
+  }
+  savedWorld = null;
+
+  canvas.width = COLS * TILE_SIZE;
+  canvas.height = ROWS * TILE_SIZE;
+  mapResizeEl.style.width = `${canvas.width}px`;
+  mapResizeEl.style.height = `${canvas.height}px`;
+  edgeControlsEl.style.width = `${canvas.width}px`;
+  edgeControlsEl.style.height = `${canvas.height}px`;
+
+  player.x = Math.min(player.x, COLS - 1);
+  player.y = Math.min(player.y, ROWS - 1);
+  spawnPoint.x = Math.min(spawnPoint.x, COLS - 1);
+  spawnPoint.y = Math.min(spawnPoint.y, ROWS - 1);
+}
+
+async function checkAndAutoLoadMap() {
+  const sp = new URLSearchParams(window.location.search);
+  const mapIdStr = sp.get("loadMap");
+  if (!mapIdStr) {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete("loadMap");
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+
+  if (!isGitHubAuthSession(gameContext.githubAuth)) {
+    return;
+  }
+
+  const mapId = Number(mapIdStr);
+  if (!Number.isInteger(mapId) || mapId <= 0) {
+    return;
+  }
+
+  await loadMapById(mapId);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatDate(iso) {
+  if (typeof iso !== "string" || !iso) {
+    return "";
+  }
+  return new Date(iso.endsWith("Z") ? iso : iso + "Z").toLocaleString();
+}
+
 /** Serialise the current world into a JSON-safe object for artifact storage.
  *  Animation-only fields (transDx, transDy, transProgress) are omitted because
  *  they represent transient render state and should not be persisted. */
@@ -1675,6 +1870,7 @@ async function initializeGitHubAuth() {
   const callbackParams = parseGitHubCallbackParams(window.location.search);
   if (!callbackParams) {
     refreshGitHubAuthUi();
+    void checkAndAutoLoadMap();
     return;
   }
   const callbackDiagnostics = formatGitHubCallbackDiagnostics(callbackParams);
@@ -1931,6 +2127,7 @@ function refreshGitHubAuthUi(errorMessage = "") {
   const hasGitHubAuthSession = isGitHubAuthSession(gameContext.githubAuth);
   githubAuthBtn.classList.toggle("hidden", hasGitHubAuthSession && !isGitHubAuthLoading);
   saveMapBtn.classList.toggle("hidden", !hasGitHubAuthSession || isGitHubAuthLoading);
+  loadMapBtn.classList.toggle("hidden", !hasGitHubAuthSession || isGitHubAuthLoading);
 
   if (isGitHubAuthLoading) {
     githubAuthBtn.textContent = "Authenticating…";
