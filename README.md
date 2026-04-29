@@ -1,8 +1,6 @@
 # vibe-game-tool
 Vibe Game Tool
 
-[▶ Play the game](https://zikalino.github.io/vibe-game-tool)
-
 ## GitHub authentication setup
 
 If the game shows **GitHub Auth Unavailable**, the GitHub OAuth client ID is not configured.
@@ -35,20 +33,6 @@ The `Deploy Backend to Ubuntu VM` workflow (`deploy-backend.yml`) deploys the st
 | Secret | Description |
 |---|---|
 | `VM_HOST` | IP address or hostname used **only** for the SSH connection.  Set this when `DOMAIN` is a proper hostname that is not yet resolvable from the GitHub Actions runner (e.g. during initial setup).  Falls back to `DOMAIN` when not set. |
-
-
-
-When the game is served from GitHub Pages **and** the backend runs on a separate server, you must tell the frontend where to reach the backend for OAuth token exchange. GitHub Pages only serves static files; it returns **405 Method Not Allowed** for any POST request, so the default relative URL (`/api/github/oauth/access_token`) will not work.
-
-Set the `BACKEND_URL` secret in your GitHub repository (**Settings → Secrets and variables → Actions → New repository secret**):
-
-| Secret | Value |
-|---|---|
-| `BACKEND_URL` | Base URL of your backend server, e.g. `https://api.example.com` |
-
-The `Deploy to GitHub Pages` workflow automatically rewrites the `github-token-exchange-url` meta tag in `index.html` to use `${BACKEND_URL}/api/github/oauth/access_token` before publishing. The backend must have CORS enabled so the GitHub Pages origin can reach it (the included Express backend allows all origins by default).
-
-> **Note:** Also register your GitHub Pages URL (e.g. `https://zikalino.github.io/vibe-game-tool`) as an **Authorization callback URL** in your GitHub OAuth App settings, since that is where GitHub will redirect users after they authorize. If you are also running the self-hosted backend, add its portal URL too (e.g. `https://api.example.com/portal`) — see [Create a GitHub OAuth App](#3-create-a-github-oauth-app) below.
 
 ## Backend deployment configuration
 
