@@ -67,9 +67,19 @@ jobs:
             /**
              * Scans a Markdown body for image references of the form ![alt](url)
              * or HTML <img src="url"> tags where the URL is an http/https link (not
-             * already a data URI), downloads each image, and replaces all occurrences
-             * of that reference with a base64 data URI so that AI tools (e.g. GitHub
-             * Copilot) can read the image content directly.
+             * already a data URI), downloads each image, and appends a collapsible
+             * <details> block containing the base64 data URI so that AI tools
+             * (e.g. GitHub Copilot) can read the image content directly.
+             *
+             * The original image reference is preserved so the image remains visible
+             * to human readers. GitHub strips data: URIs from img src attributes and
+             * Markdown image URLs when sanitizing issue content, so embedding the
+             * base64 only inside a fenced code block (which GitHub never sanitizes)
+             * is the only reliable way to store the data.
+             *
+             * An idempotency guard (the image URL in the <summary> heading) prevents
+             * the same image from being appended more than once if the workflow is
+             * triggered again after an edit.
              *
              * Duplicate references (same full token) are deduplicated so each unique
              * image is fetched only once.
@@ -99,14 +109,23 @@ jobs:
                 if (processed.has(fullMatch)) continue;
                 processed.add(fullMatch);
 
+                // Skip if base64 data for this URL was already appended (idempotency).
+                if (newBody.includes(`Image data for AI: ${imageUrl}</summary>`)) continue;
+
                 try {
                   core.info(`Downloading image: ${imageUrl}`);
                   const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
                   const dataUrl = `data:${mimeType};base64,${base64}`;
-                  // replaceAll ensures every occurrence of this exact token is updated.
-                  newBody = newBody.replaceAll(fullMatch, `![${altText}](${dataUrl})`);
+                  // Keep the original Markdown image so it remains visible, then
+                  // append a collapsible block with the base64 data for AI tools.
+                  // The fenced code block is never sanitised by GitHub, ensuring
+                  // the data URI survives even if the issue body is edited again.
+                  const detailsBlock =
+                    `\n<details>\n<summary>Image data for AI: ${imageUrl}</summary>\n\n` +
+                    `\`\`\`\n${dataUrl}\n\`\`\`\n</details>`;
+                  newBody = newBody.replaceAll(fullMatch, `${fullMatch}${detailsBlock}`);
                   changed = true;
-                  core.info(`Converted: ${imageUrl} → data:${mimeType};base64,[...]`);
+                  core.info(`Appended base64 block for: ${imageUrl}`);
                 } catch (err) {
                   core.warning(`Could not convert image ${imageUrl}: ${err.message}`);
                 }
@@ -118,16 +137,21 @@ jobs:
                 if (processed.has(fullMatch)) continue;
                 processed.add(fullMatch);
 
+                // Skip if base64 data for this URL was already appended (idempotency).
+                if (newBody.includes(`Image data for AI: ${imageUrl}</summary>`)) continue;
+
                 try {
                   core.info(`Downloading image: ${imageUrl}`);
                   const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
                   const dataUrl = `data:${mimeType};base64,${base64}`;
-                  // Replace the src URL inside the tag, keeping all other attributes.
-                  const newTag = fullMatch.replaceAll(imageUrl, dataUrl);
-                  // replaceAll ensures every occurrence of this exact token is updated.
-                  newBody = newBody.replaceAll(fullMatch, newTag);
+                  // Keep the original <img> tag so the image remains visible, then
+                  // append a collapsible block with the base64 data for AI tools.
+                  const detailsBlock =
+                    `\n<details>\n<summary>Image data for AI: ${imageUrl}</summary>\n\n` +
+                    `\`\`\`\n${dataUrl}\n\`\`\`\n</details>`;
+                  newBody = newBody.replaceAll(fullMatch, `${fullMatch}${detailsBlock}`);
                   changed = true;
-                  core.info(`Converted: ${imageUrl} → data:${mimeType};base64,[...]`);
+                  core.info(`Appended base64 block for: ${imageUrl}`);
                 } catch (err) {
                   core.warning(`Could not convert image ${imageUrl}: ${err.message}`);
                 }
